@@ -13,6 +13,8 @@
 #include <sys/types.h> 
 #include <unistd.h>
 
+#define TCP_PORT 443
+
 /* Create a struct for key-value pairs */
 typedef struct k_val{
     int key;
@@ -38,5 +40,13 @@ int main(){
         printf("Socket successfully created..\n"); 
     }
 
+    /* Set all garbage data in servaddr struct to 0 */
+    bzero(&servaddr, sizeof(servaddr)); 
+
+    /* Socket address structure initialization */
+    servaddr.sin_family = AF_INET; 
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY); 
+    servaddr.sin_port = htons(TCP_PORT); 
+    
     return 0;
 }

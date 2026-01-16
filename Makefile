@@ -9,8 +9,7 @@ CC = gcc
 CFLAGS = -g -O0 -Wall -pedantic -Wextra -std=gnu90 -I.
 
 
-all: 
-	client server
+all: client server
 
 clean:
 	rm -f *.o client server
