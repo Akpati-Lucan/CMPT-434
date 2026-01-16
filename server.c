@@ -9,3 +9,7 @@ typedef struct k_val{
     int key;
     char value[100];
 }k_val;
+
+
+/* Create an array of Key-value structs called Dict */
+struct k_val dict[100];
