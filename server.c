@@ -13,7 +13,7 @@
 #include <sys/types.h> 
 #include <unistd.h>
 
-#define TCP_PORT 443
+#define TCP_PORT 8443
 
 /* Create a struct for key-value pairs */
 typedef struct k_val{
@@ -24,7 +24,6 @@ typedef struct k_val{
 
 /* Create an array of Key-value structs called Dict */
 struct k_val dict[100];
-
 
 int main(){
 
@@ -47,6 +46,23 @@ int main(){
     servaddr.sin_family = AF_INET; 
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY); 
     servaddr.sin_port = htons(TCP_PORT); 
-    
+
+
+    /* Bind socket */ 
+    if ((bind(socket_fd, (struct sockaddr*)&servaddr, sizeof(servaddr))) != 0) { 
+        printf("socket bind failed...\n"); 
+        exit(0); 
+    } else {
+        printf("Socket successfully binded..\n"); 
+    }
+
+    // Now server is ready to listen and verification 
+    if ((listen(socket_fd, 10)) != 0) { 
+        printf("Listen failed...\n"); 
+        exit(0); 
+    } else {
+        printf("Server listening..\n"); 
+    }
+
     return 0;
 }
