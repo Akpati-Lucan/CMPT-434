@@ -25,10 +25,35 @@ typedef struct k_val{
 /* Create an array of Key-value structs called Dict */
 struct k_val dict[100];
 
+
+
+void get_data_from_client(int connect_fd){
+
+    char buff[256];
+    
+    for (;;) { 
+        
+        bzero(buff, 256); 
+  
+        /* read the message from client and copy it in buffer */ 
+        read(connect_fd, buff, sizeof(buff)); 
+        /* print buffer which contains the client contents */
+        printf("From client: %s\t To client : ", buff); 
+        bzero(buff, 256); 
+
+        /* if msg contains "Exit" then server exit and chat ended. */
+        if (strncmp("exit", buff, 4) == 0) { 
+            printf("Server Exit...\n"); 
+            break; 
+        } 
+    } 
+}
+
 int main(){
 
-    int socket_fd, connect_fd, len;
-    struct sockaddr_in servaddr, cli;
+    int socket_fd, connect_fd;
+    socklen_t len;
+    struct sockaddr_in servaddr, clientaddr;
 
     /* socket create and verification */
     socket_fd = socket(AF_INET, SOCK_STREAM, 0); 
@@ -56,7 +81,7 @@ int main(){
         printf("Socket successfully binded..\n"); 
     }
 
-    // Now server is ready to listen and verification 
+    /* Now server is ready to listen and verification */
     if ((listen(socket_fd, 10)) != 0) { 
         printf("Listen failed...\n"); 
         exit(0); 
@@ -64,5 +89,17 @@ int main(){
         printf("Server listening..\n"); 
     }
 
+    len = sizeof(clientaddr); 
+  
+    /* Accept the data packet from client and verification */
+    connect_fd = accept(socket_fd, (struct sockaddr*)&clientaddr, &len); 
+    if (connect_fd < 0) { 
+        printf("server accept failed...\n"); 
+        exit(0); 
+    } else {
+        printf("server accept the client...\n"); 
+    }
+  
+    close(socket_fd);
     return 0;
 }
