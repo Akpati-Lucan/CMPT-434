@@ -15,10 +15,6 @@
 
 #define TCP_PORT 8080 
 
-int server_port;
-char *machine;
-
-
 void send_data_to_server(int socket_fd) {
 
     char buff[256];
@@ -40,10 +36,10 @@ void send_data_to_server(int socket_fd) {
 
 int main(int argc, char *arg[]){
 
-    int socket_fd, status;
-    struct sockaddr_in servaddr;
+    int socket_fd, status, server_port;
+    struct sockaddr_in servaddr, *ipv4;
     struct addrinfo hints, *servinfo;
-    char server_port_str[10];
+    char server_port_str[10], *machine;
 
     if (argc != 3) {
         printf("Usage: ./client <server port> <machine> \n");
@@ -51,33 +47,24 @@ int main(int argc, char *arg[]){
     }
 
     /* Collect command line arguments */
-    if (atoi(arg[1]) < 30001 || atoi(arg[1]) > 40000 || atoi(arg[3]) < 30001 || atoi(arg[3]) > 40000) {
-        printf("Invalid Port NUmbers\n");
+    if (atoi(arg[1]) < 30001 || atoi(arg[1]) > 40000) {
+        printf("Invalid Port Number\n");
         exit(-1);
     }
+
 
     server_port = atoi(arg[1]);
     machine = arg[2];
 
     sprintf(server_port_str, "%d", server_port);
 
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE;
+   
 
-    if ((status = getaddrinfo(machine, 
-			      remote_port_str, 
-			      &hints, &servinfo)) != 0) {
-	fprintf(stderr, "gai error: %s\n", gai_strerror(status));
-	exit(1);
-    } 
     
-    ipv4 = (struct sockaddr_in *) servinfo->ai_addr;
-
-
     /* socket create and verification */
-    socket_fd = socket(AF_INET, SOCK_STREAM, 0); 
+    socket_fd = socket(servinfo->ai_family,
+                    servinfo->ai_socktype,
+                    servinfo->ai_protocol);
     if (socket_fd == -1) { 
         printf("socket creation failed...\n"); 
         exit(0); 
@@ -85,17 +72,20 @@ int main(int argc, char *arg[]){
         printf("Socket successfully created..\n"); 
     }
 
+   
     /* Set all garbage data in servaddr struct to 0 */
     bzero(&servaddr, sizeof(servaddr)); 
 
-     /* Socket address structure initialization */
+    /* Socket address structure initialization */
     servaddr.sin_family = AF_INET; 
-    servaddr.sin_addr.s_addr = htonl(INADDR_ANY); 
-    servaddr.sin_port = htons(TCP_PORT); 
+    servaddr.sin_port = htons(server_port); 
+    servaddr.sin_addr = ipv4->sin_addr; 
 
 
     /* connect the client socket to server socket */
-    if (connect(socket_fd, (struct sockaddr*)&servaddr, sizeof(servaddr)) != 0) {
+    if (connect(socket_fd,
+            servinfo->ai_addr,
+            servinfo->ai_addrlen) != 0)  {
         printf("connection with the server failed...\n");
         exit(0);
     } else {
