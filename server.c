@@ -100,6 +100,7 @@ int main(){
         printf("server accept the client...\n"); 
     }
   
+    get_data_from_client(connect_fd);
     close(socket_fd);
     return 0;
 }
