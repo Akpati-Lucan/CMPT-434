@@ -12,6 +12,7 @@
 #include <sys/socket.h> 
 #include <sys/types.h> 
 #include <unistd.h>
+#include <pthread.h>
 
 /* Create a struct for key-value pairs */
 typedef struct k_val{
@@ -57,11 +58,60 @@ void get_data_from_client(int connect_fd){
     } 
 }
 
+void *handle_client(void *arg)
+{
+    int connect_fd = *(int *)arg;
+    free(arg);
+
+    get_data_from_client(connect_fd);
+    close(connect_fd);
+
+    pthread_exit(NULL);
+}
+
+/* Accept incoming connections */
+void *accept_client(void *arg)
+{
+    int *connect_fd;
+    int socket_fd = *(int *)arg;
+    pthread_t client_thread;
+
+    printf("Hello from thread %d\n", socket_fd);
+
+    while (1) {
+
+        connect_fd = malloc(sizeof(int));
+
+        if (!connect_fd) {
+            perror("malloc failed");
+            pthread_exit(NULL);
+        }
+
+        /* Accept the data packet from client and verification */
+        *connect_fd = accept(socket_fd, NULL, NULL); 
+        if (*connect_fd < 0) { 
+            printf("server accept failed...\n"); 
+            free(connect_fd);
+            continue;
+        } else {
+            printf("server accept the client...\n"); 
+        }
+
+        pthread_create(&client_thread, NULL, handle_client, connect_fd);
+        pthread_detach(client_thread);
+    }
+
+    pthread_exit(NULL);
+}
+
+
+
 int main(int argc, char *arg[]){
 
-    int socket_fd, connect_fd, status, server_port;
+    int socket_fd, status, server_port;
     struct addrinfo hints, *servinfo;
     char server_port_str[16];
+    pthread_t thread;
 
     /* Check Command line arguments validity */
     if (argc != 2) {
@@ -125,18 +175,21 @@ int main(int argc, char *arg[]){
         printf("Server listening..\n"); 
     }
 
-    /* Accept the data packet from client and verification */
-    connect_fd = accept(socket_fd, NULL, NULL); 
-    if (connect_fd < 0) { 
-        printf("server accept failed...\n"); 
-        exit(0); 
-    } else {
-        printf("server accept the client...\n"); 
-    }
-  
-    get_data_from_client(connect_fd);
 
-    close(connect_fd);
+    /* Create a thread that just accepts new connections */
+    /* Have all the accept logic be in the function of this thread */
+     /* Create a new thread */
+    if (pthread_create(&thread, NULL, accept_client, &socket_fd) != 0) {
+        perror("pthread_create failed");
+        return 1;
+    }
+
+   /* Do NOT join – accept thread runs forever */
+    pthread_detach(thread);
+
+    /* main can now do other work or sleep */
+    pause();
+  
     close(socket_fd);
     return 0;
 }
