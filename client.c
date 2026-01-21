@@ -34,7 +34,7 @@ void send_data_to_server(int socket_fd) {
             break;
         }
 
-        if (strncmp(buff, "exit", 4) == 0) {
+        if (strncmp(buff, "quit", 4) == 0) {
             printf("Client Exit...\n");
             break;
         }

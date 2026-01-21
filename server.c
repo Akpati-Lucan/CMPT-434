@@ -14,6 +14,10 @@
 #include <unistd.h>
 #include <pthread.h>
 
+
+volatile int server_running = 1;
+pthread_mutex_t server_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 /* Create a struct for key-value pairs */
 typedef struct k_val{
     int key;
@@ -31,7 +35,7 @@ void get_data_from_client(int connect_fd){
     char buff[1024];
     ssize_t nbytes;
 
-    for (;;) { 
+    while (1) { 
         
         memset(buff, 0, sizeof(buff));
   
@@ -51,11 +55,16 @@ void get_data_from_client(int connect_fd){
         printf("From client: %s\n", buff);
 
         /* if msg contains "server exit" then server exit and chat ended. */
-        if (strncmp(buff, "server exit", 11) == 0) {
+        if (strncmp(buff, "shutdown", 8) == 0) {
             printf("Server Exit...\n");
-            break;
+            pthread_mutex_lock(&server_mutex);
+            server_running = 0;
+            pthread_mutex_unlock(&server_mutex);
+            printf("111/n");
+            return;
         }
     } 
+    printf("111/n");
 }
 
 void *handle_client(void *arg)
@@ -66,6 +75,7 @@ void *handle_client(void *arg)
     get_data_from_client(connect_fd);
     close(connect_fd);
 
+    printf("111/n");
     pthread_exit(NULL);
 }
 
@@ -79,6 +89,15 @@ void *accept_client(void *arg)
     printf("Hello from thread %d\n", socket_fd);
 
     while (1) {
+
+        /* Check if server should stop running */
+        pthread_mutex_lock(&server_mutex);
+        if (!server_running) {
+            pthread_mutex_unlock(&server_mutex);
+            break;
+        }
+        pthread_mutex_unlock(&server_mutex);
+
 
         connect_fd = malloc(sizeof(int));
 
