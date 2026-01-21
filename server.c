@@ -36,8 +36,10 @@ void get_data_from_client(int connect_fd){
         /* read the message from client and copy it in buffer */ 
         read(connect_fd, buff, sizeof(buff)); 
         /* print buffer which contains the client contents */
-        printf("From client: %s\t To client : ", buff); 
-        bzero(buff, 256); 
+        if (strlen(buff) == 0) {
+            printf("From client: %s\t To client : ", buff); 
+            bzero(buff, 256); 
+        }
 
         /* if msg contains "Exit" then server exit and chat ended. */
         if (strncmp("exit", buff, 4) == 0) { 
@@ -50,12 +52,10 @@ void get_data_from_client(int connect_fd){
 int main(int argc, char *arg[]){
 
     int socket_fd, connect_fd, status, server_port;
-    socklen_t len;
-    struct sockaddr_in servaddr;
     struct addrinfo hints, *servinfo;
     char server_port_str[16];
 
-    /* Choose port number for server */
+    /* Check Command line arguments validity */
     if (argc != 2) {
         printf("Usage: ./server <server port> \n");
         exit(-1);
@@ -68,6 +68,7 @@ int main(int argc, char *arg[]){
         exit(1);
     }
 
+    
     sprintf(server_port_str, "%d", server_port);
 
     /* Get IP address of server */
@@ -89,7 +90,6 @@ int main(int argc, char *arg[]){
     socket_fd = socket(servinfo->ai_family,
                     servinfo->ai_socktype,
                     servinfo->ai_protocol); 
-
     if (socket_fd == -1) { 
         printf("socket creation failed...\n"); 
         exit(0); 

@@ -36,64 +36,61 @@ void send_data_to_server(int socket_fd) {
 
 int main(int argc, char *arg[]){
 
-    int socket_fd, status, server_port;
-    struct sockaddr_in servaddr, *ipv4;
+    int client_socket, status, server_port;
     struct addrinfo hints, *servinfo;
-    char server_port_str[10], *machine;
+    char server_port_str[10];
 
-    if (argc != 3) {
-        printf("Usage: ./client <server port> <machine> \n");
+    /* Check Command line arguments validity */
+    if (argc != 2) {
+        printf("Usage: ./client <server port> \n");
         exit(-1);
     }
-
-    /* Collect command line arguments */
-    if (atoi(arg[1]) < 30001 || atoi(arg[1]) > 40000) {
-        printf("Invalid Port Number\n");
-        exit(-1);
-    }
-
 
     server_port = atoi(arg[1]);
-    machine = arg[2];
+    
+    if (server_port < 30000 || server_port > 40000) {
+        fprintf(stderr, "Port must be between 30000 and 40000\n");
+        exit(1);
+    }
 
     sprintf(server_port_str, "%d", server_port);
 
-   
+    /* Get IP address of server */
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = 0;
 
+    /* Get server IP address and Port */
+    if ((status = getaddrinfo("127.0.0.1",
+                                server_port_str, 
+                                &hints, 
+                                &servinfo)) != 0) {
+        fprintf(stderr, "gai error: %s\n", gai_strerror(status));
+        exit(1);
+    }
     
-    /* socket create and verification */
-    socket_fd = socket(servinfo->ai_family,
+    /* client socket create and verification */
+    client_socket = socket(servinfo->ai_family,
                     servinfo->ai_socktype,
-                    servinfo->ai_protocol);
-    if (socket_fd == -1) { 
+                    servinfo->ai_protocol); 
+    if (client_socket == -1) { 
         printf("socket creation failed...\n"); 
         exit(0); 
     } else {
         printf("Socket successfully created..\n"); 
     }
 
-   
-    /* Set all garbage data in servaddr struct to 0 */
-    bzero(&servaddr, sizeof(servaddr)); 
-
-    /* Socket address structure initialization */
-    servaddr.sin_family = AF_INET; 
-    servaddr.sin_port = htons(server_port); 
-    servaddr.sin_addr = ipv4->sin_addr; 
-
-
     /* connect the client socket to server socket */
-    if (connect(socket_fd,
-            servinfo->ai_addr,
-            servinfo->ai_addrlen) != 0)  {
+    if (connect(client_socket, servinfo->ai_addr, servinfo->ai_addrlen)){
         printf("connection with the server failed...\n");
         exit(0);
     } else {
         printf("connected to the server..\n");
     }
 
-    send_data_to_server(socket_fd);
+    send_data_to_server(client_socket);
 
-    close(socket_fd);
+    close(client_socket);
     return 0;
 }
