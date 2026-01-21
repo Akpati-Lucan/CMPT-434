@@ -27,25 +27,33 @@ struct k_val dict[100];
 
 void get_data_from_client(int connect_fd){
 
-    char buff[256];
-    
+    char buff[1024];
+    ssize_t nbytes;
+
     for (;;) { 
         
-        bzero(buff, 256); 
+        memset(buff, 0, sizeof(buff));
   
         /* read the message from client and copy it in buffer */ 
-        read(connect_fd, buff, sizeof(buff)); 
-        /* print buffer which contains the client contents */
-        if (strlen(buff) == 0) {
-            printf("From client: %s\t To client : ", buff); 
-            bzero(buff, 256); 
+        nbytes = read(connect_fd, buff, sizeof(buff) - 1);
+
+        if (nbytes < 0) {
+            perror("read");
+            break;
         }
 
-        /* if msg contains "Exit" then server exit and chat ended. */
-        if (strncmp("exit", buff, 4) == 0) { 
-            printf("Server Exit...\n"); 
-            break; 
-        } 
+        if (nbytes == 0) {
+            printf("Client disconnected\n");
+            break;
+        }
+
+        printf("From client: %s\n", buff);
+
+        /* if msg contains "server exit" then server exit and chat ended. */
+        if (strncmp(buff, "server exit", 11) == 0) {
+            printf("Server Exit...\n");
+            break;
+        }
     } 
 }
 

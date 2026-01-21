@@ -17,17 +17,24 @@
 
 void send_data_to_server(int socket_fd) {
 
-    char buff[256];
-    int n;
+    char buff[1024];
+    ssize_t len;
+
     for (;;) {
-        bzero(buff, sizeof(buff));
-        printf("Enter the string : ");
-        n = 0;
-        while ((buff[n++] = getchar()) != '\n');
-        write(socket_fd, buff, sizeof(buff));
 
+        printf("Enter the string: ");
 
-        if ((strncmp(buff, "exit", 4)) == 0) {
+        if (fgets(buff, sizeof(buff), stdin) == NULL)
+            break;
+
+        len = strlen(buff);
+
+        if (write(socket_fd, buff, len) != (ssize_t)len) {
+            perror("write");
+            break;
+        }
+
+        if (strncmp(buff, "exit", 4) == 0) {
             printf("Client Exit...\n");
             break;
         }
