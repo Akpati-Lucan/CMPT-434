@@ -13,8 +13,6 @@
 #include <sys/types.h> 
 #include <unistd.h>
 
-#define TCP_PORT 8443
-
 /* Create a struct for key-value pairs */
 typedef struct k_val{
     int key;
