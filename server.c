@@ -27,7 +27,8 @@ struct k_val dict[100];
 
 /* An array of strings that will hold the users input 
     A double pointer */
-char *input_str;
+char input_str[8][64];
+
 
 
 void get_data_from_client(int connect_fd){
@@ -35,10 +36,12 @@ void get_data_from_client(int connect_fd){
     char buff[1024];
     ssize_t nbytes;
     char *token;
+    int n;
 
     while (1) { 
         
         memset(buff, 0, sizeof(buff));
+        n = 0;
   
         /* read the message from client and copy it in buffer */ 
         nbytes = read(connect_fd, buff, sizeof(buff) - 1);
@@ -53,11 +56,18 @@ void get_data_from_client(int connect_fd){
             break;
         }
 
-        token = strtok(buff, " ");
-                
+        /* Tokenize and add tokens to input str */ 
+        token = strtok(buff, " \n");
         while (token != NULL) {
+            if (n >= 5) {
+                printf("Too many tokens\n");
+                break;
+            }
             printf("%s\n", token);
-            token = strtok(NULL, " ");
+            strcpy(input_str[n], token);
+            printf("%s\n", input_str[n]);
+            n += 1;
+            token = strtok(NULL, " \n");
         }
 
         /* if msg contains "server exit" then server exit and chat ended. */
