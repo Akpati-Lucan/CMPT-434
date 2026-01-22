@@ -25,11 +25,16 @@ typedef struct k_val{
 struct k_val dict[100];
 
 
+/* An array of strings that will hold the users input 
+    A double pointer */
+char *input_str;
+
 
 void get_data_from_client(int connect_fd){
 
     char buff[1024];
     ssize_t nbytes;
+    char *token;
 
     while (1) { 
         
@@ -48,7 +53,12 @@ void get_data_from_client(int connect_fd){
             break;
         }
 
-        printf("From client: %s\n", buff);
+        token = strtok(buff, " ");
+                
+        while (token != NULL) {
+            printf("%s\n", token);
+            token = strtok(NULL, " ");
+        }
 
         /* if msg contains "server exit" then server exit and chat ended. */
         if (strncmp(buff, "shutdown", 8) == 0) {
