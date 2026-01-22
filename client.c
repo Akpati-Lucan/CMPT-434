@@ -13,7 +13,6 @@
 #include <sys/types.h> 
 #include <unistd.h> 
 
-#define TCP_PORT 8080 
 
 void send_data_to_server(int socket_fd) {
 
