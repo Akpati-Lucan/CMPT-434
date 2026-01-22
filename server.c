@@ -27,8 +27,38 @@ struct k_val dict[100];
 
 /* An array of strings that will hold the users input 
     A double pointer */
-char input_str[8][64];
+char input_str[8][100];
 
+int validate_str(char str[][100]){
+    int key;
+    /*  check if str[0] is in [add, getvalue, getall, remove] */
+    if (strcmp(str[0], "add") == 0) {
+        key = atoi(str[1]);
+        if (key < 0 || key > 99) {
+            printf("Key must be between 0 and 99\n");
+            return 1;
+        }
+    } else if (strcmp(str[0], "getvalue") == 0) {
+        key = atoi(str[1]);
+        if (key < 0 || key > 99) {
+            printf("Key must be between 0 and 99\n");
+            return 1;
+        }
+    } else if (strcmp(str[0], "getall") == 0) {
+        /* handle getall */
+    }
+    else if (strcmp(str[0], "remove") == 0) {
+        key = atoi(str[1]);
+        if (key < 0 || key > 99) {
+            printf("Key must be between 0 and 99\n");
+            return 1;
+        }
+    } else {
+        printf("Unknown command\n");
+    }
+
+    return 0;
+}
 
 
 void get_data_from_client(int connect_fd){
@@ -37,6 +67,7 @@ void get_data_from_client(int connect_fd){
     ssize_t nbytes;
     char *token;
     int n;
+    int status;
 
     while (1) { 
         
@@ -63,11 +94,16 @@ void get_data_from_client(int connect_fd){
                 printf("Too many tokens\n");
                 break;
             }
-            printf("%s\n", token);
             strcpy(input_str[n], token);
             printf("%s\n", input_str[n]);
             n += 1;
             token = strtok(NULL, " \n");
+        }
+
+        status = validate_str(input_str);
+        if (status != 0){
+            printf("Wrong Input\n");
+            break;
         }
 
         /* if msg contains "server exit" then server exit and chat ended. */
