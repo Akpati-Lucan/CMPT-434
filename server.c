@@ -20,9 +20,79 @@ typedef struct k_val{
     char value[100];
 }k_val;
 
-
 /* Create an array of Key-value structs called Dict */
 struct k_val dict[100];
+
+void print_dict() {
+    int i;
+    for (i = 0; i < 100; i++) {
+         /* Only print entries that are in use */
+        if (dict[i].value[0] != '\0') {
+            printf("Key: %d, Value: %s\n", dict[i].key, dict[i].value);
+        }
+    }
+}
+
+void add_key(int key, char val[]){
+
+     /* Validate key */
+    if (key < 0 || key >= 100) {
+        printf("Key must be between 0 and 99\n");
+        return;
+    }
+    /* If the value of a certain key is empty you can add it
+        else throw a error */
+    if (dict[key].value[0] == '\0') {
+        strncpy(dict[key].value, val, sizeof(dict[key].value) - 1);
+        dict[key].value[sizeof(dict[key].value) - 1] = '\0';
+        dict[key].key = key;
+    } else {
+        printf("Key already exists\n");
+    }
+}
+
+char* get_value(int key){
+    /* If the value of a certain key is empty return;
+        else return the correct value */
+    /* Validate key */
+    if (key < 0 || key >= 100) {
+        printf("Key must be between 0 and 99\n");
+        return NULL;
+    }
+
+    /* Check if key exists */
+    if (dict[key].value[0] == '\0') {
+        return NULL;
+    }
+
+    return dict[key].value;
+}
+
+void get_all(){
+    /* For all the values in dict that are not empty
+        print them */
+    int i;
+     /* Number of values in array is hundred */
+    for (i = 0; i < 100; i++) {
+        if (strcmp(dict[i].value, "") == 0) {
+            continue;
+        } else {
+            printf("Key: %d, Value: %s\n", dict[i].key, dict[i].value);
+        }
+    }
+}
+
+
+void remove_key(int key){
+    /* If the value of a certain key is empty you can
+        else throw a error else remove it */
+    if (strcmp(dict[key].value, "") == 0) {
+        printf("Key - value Pair does not exist \n");
+    } else {
+        strcpy(dict[key].value, "");
+    }
+}
+
 
 
 /* An array of strings that will hold the users input 
@@ -31,19 +101,21 @@ char input_str[8][100];
 
 int validate_str(char str[][100]){
     int key;
+    char *test_val;
     /*  check if str[0] is in [add, getvalue, getall, remove] */
     if (strcmp(str[0], "add") == 0) {
         key = atoi(str[1]);
-        if (key < 0 || key > 99) {
-            printf("Key must be between 0 and 99\n");
-            return 1;
-        }
+        add_key(key, str[2]);
+        print_dict();
     } else if (strcmp(str[0], "getvalue") == 0) {
         key = atoi(str[1]);
-        if (key < 0 || key > 99) {
-            printf("Key must be between 0 and 99\n");
+        test_val = get_value(key);
+        if (test_val == NULL) {
+            printf("Key-value pair does not exist\n");
             return 1;
         }
+        printf("get_val for Key: %d, Value: %s\n", key, test_val);
+        print_dict();
     } else if (strcmp(str[0], "getall") == 0) {
         /* handle getall */
     }
@@ -95,7 +167,6 @@ void get_data_from_client(int connect_fd){
                 break;
             }
             strcpy(input_str[n], token);
-            printf("%s\n", input_str[n]);
             n += 1;
             token = strtok(NULL, " \n");
         }
@@ -157,7 +228,12 @@ void *accept_client(void *arg)
     pthread_exit(NULL);
 }
 
-
+void init_dict() {
+    int i;
+    for (i = 0; i < 100; i++) {
+        dict[i].value[0] = '\0';
+    }
+}
 
 int main(int argc, char *arg[]){
 
@@ -227,6 +303,9 @@ int main(int argc, char *arg[]){
     } else {
         printf("Server listening..\n"); 
     }
+
+    /* Initialize the dictionary */
+    init_dict();
 
 
     /* Create a thread that just accepts new connections */
