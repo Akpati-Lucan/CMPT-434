@@ -143,31 +143,26 @@ int validate_str(int connect_fd, char str[][100]){
     } else if (strcmp(str[0], "getvalue") == 0) {
         key = atoi(str[1]);
         test_val = get_value(key);
-        if (test_val == NULL) {
-            printf("Key-value pair does not exist\n");
-            return 1;
-        }
+        if (test_val == NULL || test_val[0] == '\0') {
+           send_data_to_client(connect_fd, "No values found.\n");
+        } else {
         snprintf(response, sizeof(response),
-             "get_val for Key: %d, Value: %s\n", key, test_val);
+            "get_val for Key: %d, Value: %s\n", key, test_val);
         send_data_to_client(connect_fd, response);
+        }
     } else if (strcmp(str[0], "getall") == 0) {
         all_values = get_all();
-        if (all_values != NULL) {
-            printf("%s", all_values);
-            send_data_to_client(connect_fd, all_values);  
-            free(all_values);                            
-        } else {
-            printf("No values found.\n");
-        }
-    }
-    else if (strcmp(str[0], "remove") == 0) {
+        if (all_values == NULL || all_values[0] == '\0') {
+            send_data_to_client(connect_fd, "No values found.\n");
+        } else { 
+            send_data_to_client(connect_fd, all_values); 
+        }   
+    } else if (strcmp(str[0], "remove") == 0) {
         int key = atoi(str[1]);
         remove_key(key);
     } else {
         printf("Unknown command\n");
     }
-
-    print_dict();
     return 0;
 }
 
