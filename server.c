@@ -35,7 +35,7 @@ void print_dict() {
 
 void add_key(int key, char val[]){
 
-     /* Validate key */
+    /* Validate key */
     if (key < 0 || key >= 100) {
         printf("Key must be between 0 and 99\n");
         return;
@@ -84,11 +84,18 @@ void get_all(){
 
 
 void remove_key(int key){
+    /* Validate key */
+    if (key < 0 || key >= 100) {
+        printf("Key must be between 0 and 99\n");
+        return;
+    }
     /* If the value of a certain key is empty you can
         else throw a error else remove it */
+    /* Check if key exists */
     if (strcmp(dict[key].value, "") == 0) {
-        printf("Key - value Pair does not exist \n");
+        printf("Key-value pair does not exist\n");
     } else {
+        /* Remove value */
         strcpy(dict[key].value, "");
     }
 }
@@ -106,7 +113,6 @@ int validate_str(char str[][100]){
     if (strcmp(str[0], "add") == 0) {
         key = atoi(str[1]);
         add_key(key, str[2]);
-        print_dict();
     } else if (strcmp(str[0], "getvalue") == 0) {
         key = atoi(str[1]);
         test_val = get_value(key);
@@ -115,20 +121,17 @@ int validate_str(char str[][100]){
             return 1;
         }
         printf("get_val for Key: %d, Value: %s\n", key, test_val);
-        print_dict();
     } else if (strcmp(str[0], "getall") == 0) {
         /* handle getall */
     }
     else if (strcmp(str[0], "remove") == 0) {
-        key = atoi(str[1]);
-        if (key < 0 || key > 99) {
-            printf("Key must be between 0 and 99\n");
-            return 1;
-        }
+        int key = atoi(str[1]);
+        remove_key(key);
     } else {
         printf("Unknown command\n");
     }
 
+    print_dict();
     return 0;
 }
 
