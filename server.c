@@ -73,19 +73,24 @@ char* get_value(int key){
 
     return dict[key].value;
 }
-
-void get_all(){
-    /* For all the values in dict that are not empty
-        print them */
+char* get_all() {
+    /* Allocate a large enough buffer */
+    char* response = malloc(4096);
     int i;
-     /* Number of values in array is hundred */
+    if (!response) return NULL;  /* handle malloc failure */
+    response[0] = '\0';          /* start with empty string */
+
     for (i = 0; i < 100; i++) {
+        char line[128];
         if (strcmp(dict[i].value, "") == 0) {
             continue;
-        } else {
-            printf("Key: %d, Value: %s\n", dict[i].key, dict[i].value);
         }
+        /* append new entry to the response string */
+        snprintf(line, sizeof(line), "Key: %d, Value: %s\n", dict[i].key, dict[i].value);
+        strncat(response, line, 4096 - strlen(response) - 1);
     }
+
+    return response;  /* caller must free() this */
 }
 
 
@@ -129,7 +134,8 @@ void send_data_to_client(int socket_fd, char *msg) {
 int validate_str(int connect_fd, char str[][100]){
     int key;
     char *test_val;
-    char response[256];
+    char* all_values;
+    char response[4096];
     /*  check if str[0] is in [add, getvalue, getall, remove] */
     if (strcmp(str[0], "add") == 0) {
         key = atoi(str[1]);
@@ -143,10 +149,16 @@ int validate_str(int connect_fd, char str[][100]){
         }
         snprintf(response, sizeof(response),
              "get_val for Key: %d, Value: %s\n", key, test_val);
-        printf("get_val for Key: %d, Value: %s\n", key, test_val);
         send_data_to_client(connect_fd, response);
     } else if (strcmp(str[0], "getall") == 0) {
-        /* handle getall */
+        all_values = get_all();
+        if (all_values != NULL) {
+            printf("%s", all_values);
+            send_data_to_client(connect_fd, all_values);  
+            free(all_values);                            
+        } else {
+            printf("No values found.\n");
+        }
     }
     else if (strcmp(str[0], "remove") == 0) {
         int key = atoi(str[1]);

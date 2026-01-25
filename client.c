@@ -29,7 +29,7 @@ void get_data_from_server(int connect_fd){
             return;
         }
         buff[nbytes] = '\0';
-        printf("Client recieved: ");
+        printf("Client recieved -  \n");
         printf("%s", buff);
         /* stop after newline */
         if (strchr(buff, '\n')) {
