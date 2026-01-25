@@ -135,6 +135,19 @@ int validate_str(char str[][100]){
     return 0;
 }
 
+void send_data_to_client(int socket_fd, char *msg) {
+    ssize_t total = 0;
+    ssize_t len = strlen(msg);
+
+    while (total < len) {
+        ssize_t n = write(socket_fd, msg + total, len - total);
+        if (n < 0) {
+            perror("write");
+            return;
+        }
+        total += n;
+    }
+}
 
 void get_data_from_client(int connect_fd){
 
