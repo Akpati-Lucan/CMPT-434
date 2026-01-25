@@ -14,32 +14,56 @@
 #include <unistd.h> 
 
 
-void get_data_from_client(int connect_fd){
+void get_data_from_server(int connect_fd){
 
     char buff[1024];
     ssize_t nbytes;
-    char *token;
-    int n;
-    int status;
 
-    while (1) { 
-        
-        memset(buff, 0, sizeof(buff));
-        n = 0;
-  
-        /* read the message from client and copy it in buffer */ 
+     while (1) {
         nbytes = read(connect_fd, buff, sizeof(buff) - 1);
-
         if (nbytes < 0) {
             perror("read");
+            return;
+        } else if (nbytes == 0) {
+            printf("Server disconnected\n");
+            return;
+        }
+        buff[nbytes] = '\0';
+        printf("Client recieved: ");
+        printf("%s", buff);
+        /* stop after newline */
+        if (strchr(buff, '\n')) {
             break;
         }
+    }
+}
 
-        if (nbytes == 0) {
-            printf("Client disconnected\n");
+
+/* An array of strings that will hold the users input 
+    A double pointer */
+char input_str[8][100];
+
+void send_data_to_server(int socket_fd) {
+    char buff[1024];
+    char sendbuf[1024];
+    ssize_t len;
+    char *token;
+    int n;
+
+
+    for (;;) {
+        n = 0;
+        memset(input_str, 0, sizeof(input_str));
+
+        printf("Enter the string: ");
+        if (fgets(buff, sizeof(buff), stdin) == NULL)
             break;
-        }
 
+        strncpy(sendbuf, buff, sizeof(sendbuf) - 1);
+        sendbuf[sizeof(sendbuf) - 1] = '\0';
+
+
+        
         /* Tokenize and add tokens to input str */ 
         token = strtok(buff, " \n");
         while (token != NULL) {
@@ -47,40 +71,26 @@ void get_data_from_client(int connect_fd){
                 printf("Too many tokens\n");
                 break;
             }
-            strcpy(input_str[n], token);
+            strncpy(input_str[n], token, sizeof(input_str[n]) - 1);
             n += 1;
             token = strtok(NULL, " \n");
         }
+        
+        len = strlen(sendbuf);
 
-        status = validate_str(input_str);
-        if (status != 0){
-            printf("Wrong Input\n");
-            break;
-        }
-
-        /* if msg contains "server exit" then server exit and chat ended. */
-        if (strncmp(buff, "shutdown", 8) == 0) {
-            printf("Server Exit...\n");
-            break;
-        }
-    } 
-}
-
-void send_data_to_server(int socket_fd) {
-    char buff[1024];
-    ssize_t len;
-    for (;;) {
-        printf("Enter the string: ");
-        if (fgets(buff, sizeof(buff), stdin) == NULL)
-            break;
-        len = strlen(buff);
-        if (write(socket_fd, buff, len) != (ssize_t)len) {
+        if (write(socket_fd, sendbuf, len) != (ssize_t)len) {
             perror("write");
             break;
         }
-        if (strncmp(buff, "quit", 4) == 0) {
+
+        if (strncmp(sendbuf, "quit", 4) == 0) {
             printf("Client Exit...\n");
             break;
+        }
+
+         if (strcmp(input_str[0], "getvalue") == 0 ||
+            strcmp(input_str[0], "getall") == 0) {
+            get_data_from_server(socket_fd);
         }
     }
 }

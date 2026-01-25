@@ -14,6 +14,12 @@
 #include <unistd.h>
 #include <pthread.h>
 
+
+int socket_fd, status, server_port;
+struct addrinfo hints, *servinfo;
+char server_port_str[16];
+pthread_t thread;
+
 /* Create a struct for key-value pairs */
 typedef struct k_val{
     int key;
@@ -100,40 +106,9 @@ void remove_key(int key){
     }
 }
 
-
-
 /* An array of strings that will hold the users input 
     A double pointer */
 char input_str[8][100];
-
-int validate_str(char str[][100]){
-    int key;
-    char *test_val;
-    /*  check if str[0] is in [add, getvalue, getall, remove] */
-    if (strcmp(str[0], "add") == 0) {
-        key = atoi(str[1]);
-        add_key(key, str[2]);
-    } else if (strcmp(str[0], "getvalue") == 0) {
-        key = atoi(str[1]);
-        test_val = get_value(key);
-        if (test_val == NULL) {
-            printf("Key-value pair does not exist\n");
-            return 1;
-        }
-        printf("get_val for Key: %d, Value: %s\n", key, test_val);
-    } else if (strcmp(str[0], "getall") == 0) {
-        /* handle getall */
-    }
-    else if (strcmp(str[0], "remove") == 0) {
-        int key = atoi(str[1]);
-        remove_key(key);
-    } else {
-        printf("Unknown command\n");
-    }
-
-    print_dict();
-    return 0;
-}
 
 void send_data_to_client(int socket_fd, char *msg) {
     ssize_t total = 0;
@@ -149,7 +124,43 @@ void send_data_to_client(int socket_fd, char *msg) {
     }
 }
 
-void get_data_from_client(int connect_fd){
+
+
+int validate_str(int connect_fd, char str[][100]){
+    int key;
+    char *test_val;
+    char response[256];
+    /*  check if str[0] is in [add, getvalue, getall, remove] */
+    if (strcmp(str[0], "add") == 0) {
+        key = atoi(str[1]);
+        add_key(key, str[2]);
+    } else if (strcmp(str[0], "getvalue") == 0) {
+        key = atoi(str[1]);
+        test_val = get_value(key);
+        if (test_val == NULL) {
+            printf("Key-value pair does not exist\n");
+            return 1;
+        }
+        snprintf(response, sizeof(response),
+             "get_val for Key: %d, Value: %s\n", key, test_val);
+        printf("get_val for Key: %d, Value: %s\n", key, test_val);
+        send_data_to_client(connect_fd, response);
+    } else if (strcmp(str[0], "getall") == 0) {
+        /* handle getall */
+    }
+    else if (strcmp(str[0], "remove") == 0) {
+        int key = atoi(str[1]);
+        remove_key(key);
+    } else {
+        printf("Unknown command\n");
+    }
+
+    print_dict();
+    return 0;
+}
+
+
+void get_data_from_client(int connect_fd, char str[][100]){
 
     char buff[1024];
     ssize_t nbytes;
@@ -187,12 +198,12 @@ void get_data_from_client(int connect_fd){
             token = strtok(NULL, " \n");
         }
 
-        status = validate_str(input_str);
+        status = validate_str(connect_fd, str);
+
         if (status != 0){
             printf("Wrong Input\n");
             break;
         }
-
         /* if msg contains "server exit" then server exit and chat ended. */
         if (strncmp(buff, "shutdown", 8) == 0) {
             printf("Server Exit...\n");
@@ -205,7 +216,11 @@ void *handle_client(void *arg)
 {
     int connect_fd = *(int *)arg;
     free(arg);
-    get_data_from_client(connect_fd);
+        
+    get_data_from_client(connect_fd, input_str);
+    close(connect_fd);
+    
+    
     close(connect_fd);
 
     pthread_exit(NULL);
@@ -215,8 +230,8 @@ void *handle_client(void *arg)
 void *accept_client(void *arg)
 {
     int *connect_fd;
-    int socket_fd = *(int *)arg;
     pthread_t client_thread;
+    socket_fd = *(int *)arg;
 
     while (1) {
 
@@ -252,11 +267,6 @@ void init_dict() {
 }
 
 int main(int argc, char *arg[]){
-
-    int socket_fd, status, server_port;
-    struct addrinfo hints, *servinfo;
-    char server_port_str[16];
-    pthread_t thread;
 
     /* Check Command line arguments validity */
     if (argc != 2) {
