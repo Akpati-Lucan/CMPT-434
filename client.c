@@ -44,15 +44,16 @@ int main(int argc, char *arg[]){
 
     int client_socket, status, server_port;
     struct addrinfo hints, *servinfo;
-    char server_port_str[10];
+    char server_port_str[10], *host_name;
 
     /* Check Command line arguments validity */
-    if (argc != 2) {
-        printf("Usage: ./client <server port> \n");
+    if (argc != 3) {
+        printf("Usage: ./client <server port> <hostname> \n");
         exit(-1);
     }
 
     server_port = atoi(arg[1]);
+    host_name = arg[2];
     
     if (server_port < 30000 || server_port > 40000) {
         fprintf(stderr, "Port must be between 30000 and 40000\n");
@@ -68,7 +69,7 @@ int main(int argc, char *arg[]){
     hints.ai_flags = 0;
 
     /* Get server IP address and Port */
-    if ((status = getaddrinfo("127.0.0.1",
+    if ((status = getaddrinfo(host_name,
                                 server_port_str, 
                                 &hints, 
                                 &servinfo)) != 0) {
