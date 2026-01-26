@@ -1,0 +1,169 @@
+Design Document
+Program: TCP Client
+Author: Lucan Akpati
+NSID: jbs671
+Student Number: 11331253
+
+
+1. Overview
+-----------
+This program implements a TCP client that connects to a remote server using
+a hostname and port number provided via the command line. The client allows
+a user to enter commands interactively, sends those commands to the server,
+and optionally receives and displays responses depending on the command type.
+
+The client supports simple text-based commands such as "getvalue", "getall",
+and "quit", and demonstrates fundamental socket programming concepts,
+including address resolution, TCP connection management, input parsing,
+and client–server communication.
+
+
+2. System Architecture
+----------------------
+The program uses a single-process, blocking I/O architecture.
+
+Characteristics:
+- Uses TCP (SOCK_STREAM) for reliable communication
+- Blocking read and write operations
+- Single-threaded execution
+- Interactive, user-driven command loop
+
+High-level flow:
+1. Parse command-line arguments
+2. Resolve server address using getaddrinfo()
+3. Create a TCP socket
+4. Connect to the server
+5. Enter interactive send/receive loop
+6. Exit cleanly on user request or server disconnect
+
+
+3. Major Components
+------------------
+
+3.1 main()
+----------
+Responsibilities:
+- Validate command-line arguments
+- Verify server port range (30000–40000)
+- Resolve server hostname and port
+- Create and connect the client socket
+- Start the client interaction loop
+- Close the socket on termination
+
+Design Notes:
+- Uses getaddrinfo() for protocol-independent address resolution
+- Terminates on invalid input or connection failure
+
+
+3.2 send_data_to_server(int socket_fd)
+--------------------------------------
+Responsibilities:
+- Read user input from standard input
+- Tokenize input into individual command arguments
+- Send user input to the server
+- Receive server responses for specific commands
+- Detect and handle client exit command
+
+Input Handling:
+- Uses fgets() to safely read user input
+- Uses strtok() to tokenize commands
+- Stores up to 5 tokens in a fixed-size array
+
+Command Logic:
+- Sends all user input to the server
+- Calls get_data_from_server() for "getvalue" and "getall"
+- Terminates when the user enters "quit"
+
+
+3.3 get_data_from_server(int connect_fd)
+----------------------------------------
+Responsibilities:
+- Receive data from the server
+- Display server responses to the user
+- Detect server disconnection
+- Stop reading after a newline character is received
+
+Design Notes:
+- Uses blocking read()
+- Properly null-terminates received data
+- Assumes server responses are line-based
+
+
+4. Data Structures
+------------------
+
+4.1 Input Token Buffer
+---------------------
+char input_str[8][100];
+
+Purpose:
+- Stores tokenized user input
+- Used for command parsing and logic decisions
+
+Constraints:
+- Maximum of 8 tokens allocated
+- Maximum token length of 100 characters
+- Logic uses up to 5 tokens
+
+
+4.2 I/O Buffers
+---------------
+char buff[1024];
+char sendbuf[1024];
+
+Purpose:
+- Temporary storage for user input and network data
+- Prevents buffer overflow using bounded operations
+
+
+5. Error Handling Strategy
+--------------------------
+- Validates command-line arguments and port range
+- Checks return values of socket(), connect(), read(), write(),
+  and getaddrinfo()
+- Uses perror() and fprintf() to report errors
+- Terminates on unrecoverable errors
+- Gracefully handles server disconnections
+
+
+6. Assumptions and Limitations
+------------------------------
+
+Assumptions:
+- Server is reachable and follows the expected protocol
+- Server responses fit within the allocated buffer
+- Server responses end with a newline character
+- Only one server connection is required
+
+Limitations:
+- Blocking I/O may cause the client to wait indefinitely
+- No timeout or retry mechanism
+- No encryption or authentication
+- Fixed-size buffers limit scalability
+- No concurrent server message handling
+
+
+7. Security Considerations
+--------------------------
+- Input sizes are bounded using fgets() and strncpy()
+- No dynamic memory allocation reduces memory management errors
+- No validation of server response content
+- No protection against malicious servers
+
+
+8. Possible Improvements
+------------------------
+- Use select() or poll() for non-blocking I/O
+- Add timeout handling for server responses
+- Improve command parsing robustness
+- Support asynchronous server messages
+- Add encryption and authentication
+- Replace strtok() with a reentrant tokenizer
+
+
+9. Conclusion
+-------------
+This program provides a functional and well-structured TCP client using
+standard POSIX socket APIs. It demonstrates essential networking concepts
+and serves as a solid foundation for more advanced client–server
+applications.

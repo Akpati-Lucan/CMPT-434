@@ -10,23 +10,42 @@
 #include <stdlib.h> 
 #include <string.h> 
 #include <sys/socket.h> 
-#include <sys/types.h> 
+#include <sys/types.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <fcntl.h>
 
 
-int tcp_socket_fd, status, server_port;
-struct addrinfo hints, *servinfo;
+
+int tcp_socket_fd, udp_socket_fd, status, proxy_port, server_port;
+struct addrinfo hints_tcp, hints_udp, *servinfo_tcp, *servinfo_udp;
+struct sockaddr_in *ipv4, proxy_info, server_info;
+char proxy_port_str[16];
 char server_port_str[16];
+char *hostname;
 pthread_t thread;
 
-void send_data_to_server(){
+
+/* An array of strings that will hold the users input 
+    A double pointer */
+char input_str[8][100];
+
+void send_data_to_server(int socket_fd, char *msg){
+    int status;
+    socklen_t to_len;
+
+    to_len = sizeof(proxy_info);
+
+    status = sendto(socket_fd, msg, sizeof(*msg), \
+		0, (struct sockaddr *)&server_info, to_len);
+        if (status == -1)
+        {
+            perror("Sender Failed to Send Message");
+        }
 
 }
 
-void get_data_from_server(){
-
-}
 
 
 void send_data_to_client(int tcp_socket_fd, char *msg) {
@@ -43,10 +62,62 @@ void send_data_to_client(int tcp_socket_fd, char *msg) {
     }
 }
 
+void get_data_from_server(int udp_socket_fd, char str[][100]){
+
+    char buff[1024];
+    char *token;
+    int n;
+    int status;
+    socklen_t from_len;
+    char* response = malloc(4096);
+
+    if (!response) return;  /* handle malloc failure */
+    response[0] = '\0';
+
+    while (1) { 
+        n = 0;
+        from_len = sizeof(server_info);
+
+        status = recvfrom(udp_socket_fd, &buff, sizeof(buff), \
+		0, (struct sockaddr *)&server_info, &from_len);
+
+        if (status == -1) {
+                perror("Receiver Failed to Receive Message");
+        }
+
+
+        /* Tokenize and add tokens to input str */ 
+        token = strtok(buff, " \n");
+        while (token != NULL) {
+            if (n >= 5) {
+                printf("Too many tokens\n");
+                break;
+            }
+            if (strcmp(token, "CS") == 0){
+                strcpy(token, "CMPT");
+            }
+            strcpy(str[n], token);
+            n += 1;
+            token = strtok(NULL, " \n");
+            strncat(response, token, 4096 - strlen(response) - 1);
+        }
+
+        send_data_to_client(tcp_socket_fd, response);
+
+        /* if msg contains "server exit" then server exit and chat ended. */
+        if (strncmp(buff, "shutdown", 8) == 0) {
+            printf("Server Exit...\n");
+            break;
+        }
+    } 
+}
+
+
 void get_data_from_client(int client_socket_fd){
 
     char buff[1024];
     ssize_t nbytes;
+    char str[8][100];
 
     while (1) { 
         
@@ -63,10 +134,13 @@ void get_data_from_client(int client_socket_fd){
             break;
         }
         
-        /* Stub send data back to client */
-        send_data_to_client(client_socket_fd, "Proxy server recieved \n");
         /* Send to real server */
-        send_data_to_server();
+        send_data_to_server(udp_socket_fd, buff);
+
+         if (strcmp(input_str[0], "getvalue") == 0 ||
+            strcmp(input_str[0], "getall") == 0) {
+            get_data_from_server(udp_socket_fd, str);
+        }
 
 
         /* if msg contains "server exit" then server exit and chat ended. */
@@ -122,12 +196,19 @@ void *accept_client(void *arg)
 int main(int argc, char *arg[]){
 
     /* Check Command line arguments validity */
-    if (argc != 3) {
-        printf("Usage: ./proxy <server port> hostname \n");
+    if (argc != 4) {
+        printf("Usage: ./proxy <proxy port> hostname <server port> \n");
         exit(-1);
     }
 
-    server_port = atoi(arg[1]);
+    proxy_port = atoi(arg[1]);
+    hostname = arg[2];
+    server_port = atoi(arg[3]);
+
+    if (proxy_port < 30000 || proxy_port > 40000) {
+        fprintf(stderr, "Port must be between 30000 and 40000\n");
+        exit(1);
+    }
 
     if (server_port < 30000 || server_port > 40000) {
         fprintf(stderr, "Port must be between 30000 and 40000\n");
@@ -135,27 +216,46 @@ int main(int argc, char *arg[]){
     }
 
     
+    sprintf(proxy_port_str, "%d", proxy_port);
     sprintf(server_port_str, "%d", server_port);
 
+    /* Get IP address of proxy */
+    memset(&hints_tcp, 0, sizeof hints_tcp);
+    hints_tcp.ai_family = AF_UNSPEC;
+    hints_tcp.ai_socktype = SOCK_STREAM;
+    hints_tcp.ai_flags = AI_PASSIVE;
+
+
     /* Get IP address of server */
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE;
+    memset(&hints_udp, 0, sizeof hints_udp);
+    hints_udp.ai_family = AF_UNSPEC;
+    hints_udp.ai_socktype = SOCK_DGRAM;
+    hints_udp.ai_flags = AI_PASSIVE;
 
     
     if ((status = getaddrinfo(NULL, 
-                                server_port_str, 
-                                &hints, 
-                                &servinfo)) != 0) {
+                                proxy_port_str, 
+                                &hints_tcp, 
+                                &servinfo_tcp)) != 0) {
         fprintf(stderr, "gai error: %s\n", gai_strerror(status));
         exit(1);
     }
 
-    /* socket create and verification */
-    tcp_socket_fd = socket(servinfo->ai_family,
-                    servinfo->ai_socktype,
-                    servinfo->ai_protocol); 
+    if ((status = getaddrinfo(hostname, 
+			                    server_port_str, 
+			                    &hints_udp, 
+                                &servinfo_udp)) != 0) {
+	    fprintf(stderr, "gai error: %s\n", gai_strerror(status));
+	    exit(1);
+    } 
+
+    ipv4 = (struct sockaddr_in *) servinfo_udp->ai_addr;
+
+
+    /* TCP socket - client create and verification */
+    tcp_socket_fd = socket(servinfo_tcp->ai_family,
+                    servinfo_tcp->ai_socktype,
+                    servinfo_tcp->ai_protocol); 
     if (tcp_socket_fd == -1) { 
         printf("socket creation failed...\n"); 
         exit(0); 
@@ -163,17 +263,48 @@ int main(int argc, char *arg[]){
         printf("Socket successfully created..\n"); 
     }
 
+    /* Create Socket - UDP - Mainserver*/
+    udp_socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (udp_socket_fd == -1) {
+        perror("Socket creation failed!");
+        exit(1);
+    }
+
+    /* Making Remote address Structure */
+    memset(&server_info, 0, sizeof(server_info));
+    server_info.sin_family = AF_INET;
+    server_info.sin_port = htons(server_port);
+    server_info.sin_addr = ipv4->sin_addr;
+
+    /* Change file descriptor to NON-BLOCKING*/
+    if (fcntl(udp_socket_fd, F_SETFL, SOCK_NONBLOCK) == -1) {
+        perror("Could not make socket non-blocking!\n");
+        exit(1);
+    }
+    if (fcntl(STDIN_FILENO, F_SETFL, SOCK_NONBLOCK) == -1)
+    {
+        perror("Could not make stdin non-blocking!");
+        exit(1);
+    }
+
+    /* Bind socket to port*/
+    if (bind(udp_socket_fd, (struct sockaddr *)&proxy_info, 
+			sizeof(proxy_info)) == -1){
+        perror("Socket could not be bound");
+        exit(1);
+    }
+
     /* Bind socket */ 
     if (bind(tcp_socket_fd,
-             servinfo->ai_addr,
-             servinfo->ai_addrlen) != 0) { 
+             servinfo_tcp->ai_addr,
+             servinfo_tcp->ai_addrlen) != 0) { 
         printf("socket bind failed...\n"); 
         exit(0); 
     } else {
         printf("Socket successfully binded..\n"); 
     }
     
-    freeaddrinfo(servinfo);
+    freeaddrinfo(servinfo_tcp);
 
     /* Now server is ready to listen and verification */
     if ((listen(tcp_socket_fd, 10)) != 0) { 

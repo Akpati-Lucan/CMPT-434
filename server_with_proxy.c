@@ -11,13 +11,18 @@
 #include <string.h> 
 #include <sys/socket.h> 
 #include <sys/types.h> 
+#include <arpa/inet.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <fcntl.h>
 
 
-int socket_fd, status, server_port;
-struct addrinfo hints, *servinfo;
+int udp_socket_fd, status, server_port, proxy_port;
+struct addrinfo hints_udp, *servinfo_udp;
+struct sockaddr_in *ipv4, proxy_info, server_info;
 char server_port_str[16];
+char proxy_port_str[16];
+char *hostname;
 pthread_t thread;
 
 /* Create a struct for key-value pairs */
@@ -73,11 +78,28 @@ char* get_value(int key){
 
     return dict[key].value;
 }
-char* get_all() {
+
+
+void send_data_to_client(int udp_socket_fd, char *msg) {
+
+    int status;
+    socklen_t to_len;
+
+    to_len = sizeof(proxy_info);
+
+    status = sendto(udp_socket_fd, msg, sizeof(*msg), \
+		0, (struct sockaddr *)&proxy_info, to_len);
+        if (status == -1)
+        {
+            perror("Sender Failed to Send Message");
+        }
+
+}
+void get_all() {
     /* Allocate a large enough buffer */
     char* response = malloc(4096);
     int i;
-    if (!response) return NULL;  /* handle malloc failure */
+    if (!response) return;  /* handle malloc failure */
     response[0] = '\0';          /* start with empty string */
 
     for (i = 0; i < 100; i++) {
@@ -87,10 +109,8 @@ char* get_all() {
         }
         /* append new entry to the response string */
         snprintf(line, sizeof(line), "Key: %d, Value: %s\n", dict[i].key, dict[i].value);
-        strncat(response, line, 4096 - strlen(response) - 1);
+        send_data_to_client(udp_socket_fd, line);
     }
-
-    return response;  /* caller must free() this */
 }
 
 
@@ -115,26 +135,10 @@ void remove_key(int key){
     A double pointer */
 char input_str[8][100];
 
-void send_data_to_client(int socket_fd, char *msg) {
-    ssize_t total = 0;
-    ssize_t len = strlen(msg);
-
-    while (total < len) {
-        ssize_t n = write(socket_fd, msg + total, len - total);
-        if (n < 0) {
-            perror("write");
-            return;
-        }
-        total += n;
-    }
-}
-
-
 
 int execute_command(int connect_fd, char str[][100]){
     int key;
     char *test_val;
-    char* all_values;
     char response[4096];
     /*  check if str[0] is in [add, getvalue, getall, remove] */
     if (strcmp(str[0], "add") == 0) {
@@ -151,12 +155,7 @@ int execute_command(int connect_fd, char str[][100]){
         send_data_to_client(connect_fd, response);
         }
     } else if (strcmp(str[0], "getall") == 0) {
-        all_values = get_all();
-        if (all_values == NULL || all_values[0] == '\0') {
-            send_data_to_client(connect_fd, "No values found.\n");
-        } else { 
-            send_data_to_client(connect_fd, all_values); 
-        }   
+        get_all();
     } else if (strcmp(str[0], "remove") == 0) {
         int key = atoi(str[1]);
         remove_key(key);
@@ -167,31 +166,31 @@ int execute_command(int connect_fd, char str[][100]){
 }
 
 
-void get_data_from_client(int connect_fd, char str[][100]){
+void get_data_from_client(int udp_socket_fd, char str[][100]){
 
     char buff[1024];
-    ssize_t nbytes;
     char *token;
     int n;
     int status;
+    socklen_t from_len;
 
     while (1) { 
-        
-        memset(buff, 0, sizeof(buff));
         n = 0;
-  
-        /* read the message from client and copy it in buffer */ 
-        nbytes = read(connect_fd, buff, sizeof(buff) - 1);
+        from_len = sizeof(proxy_info);
 
-        if (nbytes < 0) {
-            perror("read");
-            break;
+        status = recvfrom(udp_socket_fd, &buff, sizeof(buff), \
+		0, (struct sockaddr *)&proxy_info, &from_len);
+
+        
+        if (status > 0) {
+            buff[status] = '\0';
         }
 
-        if (nbytes == 0) {
-            printf("Client disconnected\n");
-            break;
+        if (status == -1) {
+            continue;
         }
+
+
 
         /* Tokenize and add tokens to input str */ 
         token = strtok(buff, " \n");
@@ -200,12 +199,12 @@ void get_data_from_client(int connect_fd, char str[][100]){
                 printf("Too many tokens\n");
                 break;
             }
-            strcpy(input_str[n], token);
+            strcpy(str[n], token);
             n += 1;
             token = strtok(NULL, " \n");
         }
 
-        status = execute_command(connect_fd, str);
+        status = execute_command(udp_socket_fd, str);
 
         if (status != 0){
             printf("Wrong Input\n");
@@ -219,49 +218,11 @@ void get_data_from_client(int connect_fd, char str[][100]){
     } 
 }
 
-void *handle_client(void *arg)
-{
-    int connect_fd = *(int *)arg;
-    free(arg);
-        
-    get_data_from_client(connect_fd, input_str);
-    close(connect_fd);
-    
-    
-    close(connect_fd);
-
-    pthread_exit(NULL);
-}
 
 /* Accept incoming connections */
-void *accept_client(void *arg)
+void *accept_proxy()
 {
-    int *connect_fd;
-    pthread_t client_thread;
-    socket_fd = *(int *)arg;
-
-    while (1) {
-
-        connect_fd = malloc(sizeof(int));
-
-        if (!connect_fd) {
-            perror("malloc failed");
-            pthread_exit(NULL);
-        }
-
-        /* Accept the data packet from client and verification */
-        *connect_fd = accept(socket_fd, NULL, NULL); 
-        if (*connect_fd < 0) { 
-            printf("server accept failed...\n"); 
-            free(connect_fd);
-            continue;
-        } else {
-            printf("server accept the client...\n"); 
-        }
-
-        pthread_create(&client_thread, NULL, handle_client, connect_fd);
-        pthread_detach(client_thread);
-    }
+    get_data_from_client(udp_socket_fd, input_str);
 
     pthread_exit(NULL);
 }
@@ -276,75 +237,84 @@ void init_dict() {
 int main(int argc, char *arg[]){
 
     /* Check Command line arguments validity */
-    if (argc != 2) {
-        printf("Usage: ./server <server port> \n");
+    if (argc != 4) {
+        printf("Usage: ./server_with_proxy <server port> hostname <proxy port> \n");
         exit(-1);
     }
 
     server_port = atoi(arg[1]);
+    hostname = arg[2];
+    proxy_port = atoi(arg[3]);
 
     if (server_port < 30000 || server_port > 40000) {
         fprintf(stderr, "Port must be between 30000 and 40000\n");
         exit(1);
     }
 
-    
-    sprintf(server_port_str, "%d", server_port);
-
-    /* Get IP address of server */
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE;
-
-    
-    if ((status = getaddrinfo(NULL, 
-                                server_port_str, 
-                                &hints, 
-                                &servinfo)) != 0) {
-        fprintf(stderr, "gai error: %s\n", gai_strerror(status));
+    if (proxy_port < 30000 || proxy_port > 40000) {
+        fprintf(stderr, "Port must be between 30000 and 40000\n");
         exit(1);
     }
 
-    /* socket create and verification */
-    socket_fd = socket(servinfo->ai_family,
-                    servinfo->ai_socktype,
-                    servinfo->ai_protocol); 
-    if (socket_fd == -1) { 
-        printf("socket creation failed...\n"); 
-        exit(0); 
-    } else {
-        printf("Socket successfully created..\n"); 
-    }
-
-    /* Bind socket */ 
-    if (bind(socket_fd,
-             servinfo->ai_addr,
-             servinfo->ai_addrlen) != 0) { 
-        printf("socket bind failed...\n"); 
-        exit(0); 
-    } else {
-        printf("Socket successfully binded..\n"); 
-    }
     
-    freeaddrinfo(servinfo);
+    sprintf(server_port_str, "%d", server_port);
+    sprintf(proxy_port_str, "%d", proxy_port);
 
-    /* Now server is ready to listen and verification */
-    if ((listen(socket_fd, 10)) != 0) { 
-        printf("Listen failed...\n"); 
-        exit(0); 
-    } else {
-        printf("Server listening..\n"); 
+    /* Get IP address of server */
+    memset(&hints_udp, 0, sizeof hints_udp);
+    hints_udp.ai_family = AF_UNSPEC;
+    hints_udp.ai_socktype = SOCK_DGRAM;
+    hints_udp.ai_flags = AI_PASSIVE;
+
+
+
+    if ((status = getaddrinfo(hostname, 
+			                    server_port_str, 
+			                    &hints_udp, 
+                                &servinfo_udp)) != 0) {
+	    fprintf(stderr, "gai error: %s\n", gai_strerror(status));
+	    exit(1);
+    } 
+
+    ipv4 = (struct sockaddr_in *) servinfo_udp->ai_addr;
+
+   
+    /* Create Socket - UDP - Mainserver*/
+    udp_socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (udp_socket_fd == -1) {
+        perror("Socket creation failed!");
+        exit(1);
+    }
+
+    /* Making Remote address Structure */
+    memset(&proxy_info, 0, sizeof(proxy_info));
+    proxy_info.sin_family = AF_INET;
+    proxy_info.sin_port = htons(server_port);
+    proxy_info.sin_addr = ipv4->sin_addr;
+
+    /* Change file descriptor to NON-BLOCKING*/
+    if (fcntl(udp_socket_fd, F_SETFL, O_NONBLOCK) == -1) {
+        perror("Could not make socket non-blocking!\n");
+        exit(1);
+    }
+    if (fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK) == -1)
+    {
+        perror("Could not make stdin non-blocking!");
+        exit(1);
+    }
+
+    /* Bind socket to port*/
+    if (bind(udp_socket_fd, (struct sockaddr *)&server_info, 
+			sizeof(server_info)) == -1){
+        perror("Socket could not be bound");
+        exit(1);
     }
 
     /* Initialize the dictionary */
     init_dict();
 
-
-    /* Create a thread that just accepts new connections */
-    /* Have all the accept logic be in the function of this thread */
-     /* Create a new thread */
-    if (pthread_create(&thread, NULL, accept_client, &socket_fd) != 0) {
+    /* Create a new thread */
+    if (pthread_create(&thread, NULL, accept_proxy, NULL) != 0) {
         perror("pthread_create failed");
         return 1;
     }
@@ -355,6 +325,6 @@ int main(int argc, char *arg[]){
     /* main can now do other work or sleep */
     pause();
   
-    close(socket_fd);
+    close(udp_socket_fd);
     return 0;
 }

@@ -1,0 +1,235 @@
+Design Document
+Program: TCP–UDP Proxy Server
+Author: Lucan Akpati
+NSID: jbs671
+Student Number: 11331253
+
+
+1. Overview
+-----------
+This program implements a proxy server that sits between TCP clients and a
+UDP-based backend server. The proxy accepts multiple TCP client connections,
+forwards client requests to a remote UDP server, receives responses, and
+relays those responses back to the appropriate TCP client.
+
+The proxy uses multithreading to support concurrent clients and combines
+TCP (for client-facing communication) with UDP (for server-facing
+communication).
+
+
+2. System Architecture
+----------------------
+The proxy follows a multi-threaded, hybrid-protocol architecture.
+
+Characteristics:
+- TCP used for client-to-proxy communication
+- UDP used for proxy-to-server communication
+- One main accept thread
+- One worker thread per connected client
+- Blocking TCP I/O
+- Non-blocking UDP I/O
+
+High-level flow:
+1. Parse command-line arguments
+2. Create and bind TCP listening socket
+3. Create UDP socket for server communication
+4. Accept incoming TCP client connections
+5. Spawn a new thread for each client
+6. Forward client requests to the UDP server
+7. Relay server responses back to the TCP client
+
+
+3. Major Components
+------------------
+
+3.1 main()
+----------
+Responsibilities:
+- Validate command-line arguments
+- Validate proxy and server port ranges (30000–40000)
+- Resolve proxy and server addresses using getaddrinfo()
+- Create TCP and UDP sockets
+- Bind sockets to appropriate ports
+- Configure sockets (including non-blocking mode)
+- Start the client accept thread
+- Keep the proxy running indefinitely
+
+Design Notes:
+- Uses pthreads for concurrency
+- TCP socket listens for incoming client connections
+- UDP socket communicates with the backend server
+
+
+3.2 accept_client(void *arg)
+----------------------------
+Responsibilities:
+- Continuously accept new TCP client connections
+- Allocate memory for each client socket descriptor
+- Spawn a detached thread to handle each client
+
+Design Notes:
+- Runs in its own thread
+- Allows the proxy to handle multiple clients concurrently
+- Detaches client threads to avoid resource leaks
+
+
+3.3 handle_client(void *arg)
+----------------------------
+Responsibilities:
+- Receive the client socket descriptor
+- Handle communication with a single client
+- Clean up resources when the client disconnects
+
+Design Notes:
+- One instance per connected client
+- Calls get_data_from_client() to process client requests
+
+
+3.4 get_data_from_client(int client_socket_fd)
+----------------------------------------------
+Responsibilities:
+- Read requests from the TCP client
+- Forward client requests to the UDP server
+- Trigger server response handling for specific commands
+- Detect client disconnects and shutdown commands
+
+Design Notes:
+- Uses blocking read() for TCP communication
+- Forwards raw client input to the UDP server
+- Terminates when the client disconnects or sends "shutdown"
+
+
+3.5 send_data_to_server(int socket_fd, char *msg)
+-------------------------------------------------
+Responsibilities:
+- Send client requests to the backend UDP server
+
+Design Notes:
+- Uses sendto() for UDP communication
+- Sends data to a preconfigured server address
+- Logs errors on transmission failure
+
+
+3.6 get_data_from_server(int udp_socket_fd, char str[][100])
+------------------------------------------------------------
+Responsibilities:
+- Receive responses from the UDP server
+- Tokenize and process server messages
+- Modify specific tokens (e.g., replacing "CS" with "CMPT")
+- Aggregate server responses
+- Forward responses to the TCP client
+
+Design Notes:
+- Uses non-blocking recvfrom()
+- Dynamically allocates response buffer
+- Assumes server responses are text-based
+- Stops on "shutdown" message from server
+
+
+3.7 send_data_to_client(int tcp_socket_fd, char *msg)
+-----------------------------------------------------
+Responsibilities:
+- Reliably send server responses back to the TCP client
+
+Design Notes:
+- Uses write() in a loop to ensure full message delivery
+- Handles partial writes correctly
+
+
+4. Data Structures
+------------------
+
+4.1 Input Token Buffer
+---------------------
+char input_str[8][100];
+
+Purpose:
+- Stores tokenized input commands
+- Supports command inspection and processing
+
+Constraints:
+- Maximum of 8 tokens
+- Maximum token length of 100 characters
+
+
+4.2 Network Buffers
+-------------------
+char buff[1024];
+
+Purpose:
+- Temporary storage for incoming and outgoing messages
+- Used for both TCP and UDP communication
+
+
+4.3 Socket Address Structures
+-----------------------------
+struct sockaddr_in proxy_info;
+struct sockaddr_in server_info;
+
+Purpose:
+- Store proxy bind address and server destination address
+- Used with bind(), sendto(), and recvfrom()
+
+
+5. Concurrency Model
+--------------------
+- One dedicated thread accepts TCP connections
+- Each client connection is handled by its own thread
+- UDP communication is shared across threads
+- Threads are detached to avoid join overhead
+
+Limitations:
+- Shared UDP socket may cause race conditions
+- No explicit synchronization mechanisms are used
+
+
+6. Error Handling Strategy
+--------------------------
+- Validates all socket creation and binding operations
+- Checks return values of read(), write(), sendto(), recvfrom()
+- Uses perror() and printf() for error reporting
+- Terminates client threads gracefully on errors
+- Continues accepting new clients despite individual failures
+
+
+7. Assumptions and Limitations
+------------------------------
+
+Assumptions:
+- Backend server is reachable and responds correctly
+- Server responses are small enough to fit in buffers
+- Protocol is text-based and newline-delimited
+- Clients follow the expected command format
+
+Limitations:
+- No client authentication
+- No encryption
+- Shared UDP socket is not thread-safe
+- Non-blocking UDP may result in busy-waiting
+- No timeout or retry mechanism
+
+
+8. Security Considerations
+--------------------------
+- Uses bounded buffers to reduce overflow risk
+- No protection against malicious clients or servers
+- No validation of server response content
+- No access control or authentication mechanisms
+
+
+9. Possible Improvements
+------------------------
+- Add mutex protection around UDP socket usage
+- Use select(), poll(), or epoll() instead of busy loops
+- Implement request–response correlation per client
+- Add logging and monitoring
+- Add TLS for TCP connections
+- Improve protocol validation and parsing
+
+
+10. Conclusion
+--------------
+This proxy server demonstrates a hybrid TCP/UDP architecture with
+multithreaded client handling. It provides a functional intermediary
+between TCP clients and a UDP backend server and serves as a foundation
+for more robust and secure proxy implementations.
