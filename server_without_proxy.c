@@ -131,7 +131,7 @@ void send_data_to_client(int socket_fd, char *msg) {
 
 
 
-int validate_str(int connect_fd, char str[][100]){
+int execute_command(int connect_fd, char str[][100]){
     int key;
     char *test_val;
     char* all_values;
@@ -205,7 +205,7 @@ void get_data_from_client(int connect_fd, char str[][100]){
             token = strtok(NULL, " \n");
         }
 
-        status = validate_str(connect_fd, str);
+        status = execute_command(connect_fd, str);
 
         if (status != 0){
             printf("Wrong Input\n");
