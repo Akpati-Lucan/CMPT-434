@@ -1,0 +1,217 @@
+Design Document
+Program: Multithreaded TCP Key-Value Server
+Author: Lucan Akpati
+NSID: jbs671
+Student Number: 11331253
+
+
+1. Overview
+-----------
+This program implements a multithreaded TCP server that maintains an
+in-memory key–value dictionary. Clients connect to the server over TCP
+and issue text-based commands to add, retrieve, remove, or list key–value
+pairs.
+
+The server supports multiple concurrent clients using POSIX threads and
+processes client requests independently while sharing a common dictionary.
+
+
+2. System Architecture
+----------------------
+The server uses a multi-threaded, blocking I/O architecture.
+
+Characteristics:
+- TCP (SOCK_STREAM) communication
+- Blocking socket I/O
+- One acceptor thread
+- One worker thread per connected client
+- Shared in-memory dictionary
+
+High-level flow:
+1. Parse and validate command-line arguments
+2. Create and bind TCP listening socket
+3. Initialize key–value dictionary
+4. Start accept thread
+5. Accept incoming client connections
+6. Spawn a new thread for each client
+7. Process client commands until disconnect or shutdown
+
+
+3. Major Components
+------------------
+
+3.1 main()
+----------
+Responsibilities:
+- Validate command-line arguments
+- Validate server port range (30000–40000)
+- Resolve server address using getaddrinfo()
+- Create, bind, and listen on a TCP socket
+- Initialize the dictionary
+- Start the accept thread
+- Keep the server running indefinitely
+
+Design Notes:
+- Uses AI_PASSIVE for server binding
+- Detaches accept thread to run continuously
+
+
+3.2 accept_client(void *arg)
+----------------------------
+Responsibilities:
+- Continuously accept incoming TCP client connections
+- Allocate memory for each client socket descriptor
+- Spawn a detached thread to handle each client
+
+Design Notes:
+- Runs in its own thread
+- Allows multiple clients to connect concurrently
+- Ensures the server remains responsive
+
+
+3.3 handle_client(void *arg)
+----------------------------
+Responsibilities:
+- Receive the connected client socket descriptor
+- Invoke client request handling logic
+- Close the connection when the client disconnects
+
+Design Notes:
+- One instance per client
+- Cleans up allocated resources before exiting
+
+
+3.4 get_data_from_client(int connect_fd, char str[][100])
+---------------------------------------------------------
+Responsibilities:
+- Read commands from the connected TCP client
+- Tokenize client input into individual command arguments
+- Execute requested operations on the dictionary
+- Detect client disconnects and shutdown requests
+
+Design Notes:
+- Uses blocking read()
+- Supports up to 5 command tokens
+- Terminates on client disconnect or "shutdown" command
+
+
+3.5 execute_command(int connect_fd, char str[][100])
+----------------------------------------------------
+Responsibilities:
+- Interpret client commands
+- Perform dictionary operations
+- Send responses back to the client when required
+
+Supported Commands:
+- add <key> <value>
+- getvalue <key>
+- getall
+- remove <key>
+
+Design Notes:
+- Sends formatted responses for retrieval commands
+- Returns error messages for invalid requests
+
+
+3.6 send_data_to_client(int socket_fd, char *msg)
+-------------------------------------------------
+Responsibilities:
+- Reliably send response data to the client
+
+Design Notes:
+- Handles partial writes using a loop
+- Ensures the full message is transmitted
+
+
+4. Dictionary Design
+--------------------
+
+4.1 Data Structure
+------------------
+struct k_val {
+    int key;
+    char value[100];
+};
+
+struct k_val dict[100];
+
+Purpose:
+- Stores up to 100 key–value pairs
+- Keys range from 0 to 99
+- Values are strings up to 99 characters
+
+
+4.2 Dictionary Operations
+-------------------------
+- add_key(): Adds a new key–value pair
+- get_value(): Retrieves the value for a given key
+- get_all(): Returns all stored key–value pairs
+- remove_key(): Deletes a key–value pair
+- init_dict(): Initializes dictionary entries
+
+Design Notes:
+- Dictionary stored entirely in memory
+- Empty values indicate unused keys
+
+
+5. Concurrency Model
+--------------------
+- One acceptor thread listens for new connections
+- Each client connection handled by a dedicated thread
+- All threads share the same dictionary
+
+Limitations:
+- No mutex protection on dictionary access
+- Potential race conditions under concurrent access
+
+
+6. Error Handling Strategy
+--------------------------
+- Validates command-line arguments and port range
+- Checks return values of socket(), bind(), listen(), accept()
+- Uses perror() and printf() for error reporting
+- Gracefully handles client disconnections
+- Continues running despite individual client failures
+
+
+7. Assumptions and Limitations
+------------------------------
+
+Assumptions:
+- Clients send well-formed text commands
+- Keys are integers between 0 and 99
+- Server runs in a trusted environment
+- Dictionary fits entirely in memory
+
+Limitations:
+- No synchronization for shared dictionary
+- Blocking I/O may delay thread termination
+- No authentication or encryption
+- No persistence (data lost on server shutdown)
+- Fixed-size dictionary limits scalability
+
+
+8. Security Considerations
+--------------------------
+- Input sizes are bounded to prevent buffer overflow
+- No validation against malicious clients
+- No protection against race conditions
+- No encryption or access control mechanisms
+
+
+9. Possible Improvements
+------------------------
+- Add mutex locks to protect dictionary access
+- Use read–write locks for better concurrency
+- Add persistent storage (file or database)
+- Implement non-blocking I/O or select()
+- Add authentication and encryption
+- Improve input validation and error reporting
+
+
+10. Conclusion
+--------------
+This program provides a functional multithreaded TCP key–value server
+demonstrating core networking and concurrency concepts. While simple in
+design, it establishes a strong foundation for more robust, scalable, and
+secure server-side applications.

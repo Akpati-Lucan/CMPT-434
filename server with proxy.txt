@@ -1,0 +1,216 @@
+Design Document
+Program: UDP Key-Value Server with Proxy Communication
+Author: Lucan Akpati
+NSID: jbs671
+Student Number: 11331253
+
+
+1. Overview
+-----------
+This program implements a UDP-based key–value server that communicates with
+clients indirectly through a proxy server. The server listens for incoming
+UDP messages from the proxy, processes text-based key–value commands, and
+sends responses back to the proxy for forwarding to clients.
+
+The server maintains an in-memory dictionary and supports commands such as
+add, getvalue, getall, remove, and shutdown.
+
+
+2. System Architecture
+----------------------
+The server follows a single-process, multi-threaded architecture using
+non-blocking UDP communication.
+
+Characteristics:
+- UDP (SOCK_DGRAM) communication
+- Non-blocking socket I/O
+- One worker thread handling proxy requests
+- Shared in-memory key–value dictionary
+- Proxy-mediated client communication
+
+High-level flow:
+1. Parse and validate command-line arguments
+2. Resolve server address using getaddrinfo()
+3. Create and bind UDP socket
+4. Initialize key–value dictionary
+5. Start proxy-handling thread
+6. Receive commands from proxy
+7. Process commands and send responses back to proxy
+
+
+3. Major Components
+------------------
+
+3.1 main()
+----------
+Responsibilities:
+- Validate command-line arguments
+- Validate server and proxy port ranges (30000–40000)
+- Resolve server address information
+- Create and bind a UDP socket
+- Configure socket for non-blocking I/O
+- Initialize the dictionary
+- Start the proxy-handling thread
+- Keep the server running indefinitely
+
+Design Notes:
+- Uses getaddrinfo() for address resolution
+- Uses pause() to keep the main thread alive
+
+
+3.2 accept_proxy(void *arg)
+---------------------------
+Responsibilities:
+- Serve as the main worker thread
+- Receive and process all proxy requests
+
+Design Notes:
+- Runs indefinitely
+- Delegates request handling to get_data_from_client()
+
+
+3.3 get_data_from_client(int udp_socket_fd, char str[][100])
+------------------------------------------------------------
+Responsibilities:
+- Receive UDP datagrams from the proxy
+- Parse incoming messages into command tokens
+- Execute dictionary operations
+- Detect shutdown commands
+
+Design Notes:
+- Uses non-blocking recvfrom()
+- Stores proxy address for response routing
+- Tokenizes input using strtok()
+- Handles up to 5 command tokens per request
+
+
+3.4 execute_command(int connect_fd, char str[][100])
+----------------------------------------------------
+Responsibilities:
+- Interpret proxy-sent commands
+- Perform dictionary operations
+- Send responses back to the proxy when required
+
+Supported Commands:
+- add <key> <value>
+- getvalue <key>
+- getall
+- remove <key>
+- shutdown
+
+Design Notes:
+- Sends formatted responses for retrieval commands
+- Delegates bulk responses to get_all()
+
+
+3.5 send_data_to_client(int udp_socket_fd, char *msg)
+-----------------------------------------------------
+Responsibilities:
+- Send UDP responses back to the proxy
+
+Design Notes:
+- Uses sendto() with the stored proxy address
+- Reports errors on transmission failure
+
+
+3.6 get_all()
+-------------
+Responsibilities:
+- Iterate through the dictionary
+- Send all stored key–value pairs to the proxy
+
+Design Notes:
+- Sends each entry as a separate UDP datagram
+- Skips empty dictionary entries
+
+
+4. Dictionary Design
+--------------------
+
+4.1 Data Structure
+------------------
+struct k_val {
+    int key;
+    char value[100];
+};
+
+struct k_val dict[100];
+
+Purpose:
+- Stores up to 100 key–value pairs
+- Keys range from 0 to 99
+- Values stored as fixed-length strings
+
+
+4.2 Dictionary Operations
+-------------------------
+- add_key(): Inserts a new key–value pair
+- get_value(): Retrieves the value for a given key
+- get_all(): Sends all stored entries
+- remove_key(): Deletes a key–value pair
+- init_dict(): Initializes dictionary entries
+
+
+5. Concurrency Model
+--------------------
+- One worker thread handles all incoming proxy requests
+- Dictionary is accessed by a single thread
+
+Advantages:
+- No need for mutex locking
+- Simple concurrency model
+
+Limitations:
+- Server processes one request at a time
+- Scalability limited by single-threaded processing
+
+
+6. Error Handling Strategy
+--------------------------
+- Validates command-line arguments and port ranges
+- Checks return values of socket(), bind(), recvfrom(), and sendto()
+- Uses perror() and printf() for error reporting
+- Continues operation on transient receive errors
+
+
+7. Assumptions and Limitations
+------------------------------
+
+Assumptions:
+- Proxy forwards well-formed commands
+- UDP packet loss is minimal
+- Commands fit within buffer limits
+- Server runs in a controlled environment
+
+Limitations:
+- No reliability guarantees (UDP-based)
+- No request–response correlation
+- No authentication or encryption
+- No persistence (dictionary resets on restart)
+- Fixed-size dictionary limits scalability
+
+
+8. Security Considerations
+--------------------------
+- Uses bounded buffers to reduce overflow risk
+- No validation of proxy identity
+- Vulnerable to spoofed UDP packets
+- No access control or encryption mechanisms
+
+
+9. Possible Improvements
+------------------------
+- Add request identifiers for response matching
+- Add retransmission or acknowledgment mechanism
+- Introduce access control and authentication
+- Persist dictionary to disk
+- Use select() or poll() for efficient I/O
+- Support multiple proxy instances
+
+
+10. Conclusion
+--------------
+This program demonstrates a UDP-based key–value server designed to operate
+behind a proxy. It highlights non-blocking UDP communication, command
+processing, and in-memory data management, providing a foundation for more
+robust and scalable distributed systems.
