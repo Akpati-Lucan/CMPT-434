@@ -9,10 +9,10 @@ CC = gcc
 CFLAGS = -g -O0 -Wall -pedantic -Wextra -std=gnu90 -I.
 
 
-all: client server_without_proxy
+all: client server_without_proxy proxy server_with_proxy
 
 clean:
-	rm -f *.o client server_without_proxy
+	rm -f *.o client server_without_proxy proxy server_with_proxy
 
 #########################################################
 
@@ -25,8 +25,27 @@ client: client.o
 
 #########################################################
 
+proxy.o: proxy.c
+	$(CC) -c proxy.c $(CFLAGS)
+
+proxy: proxy.o 
+	$(CC) $(CFLAGS) proxy.o -o proxy
+
+
+#########################################################
+
 server_without_proxy.o: server_without_proxy.c
 	$(CC) -c server_without_proxy.c $(CFLAGS)
 
 server_without_proxy: server_without_proxy.o 
 	$(CC) $(CFLAGS) server_without_proxy.o -o server_without_proxy
+
+
+
+#########################################################
+
+server_with_proxy.o: server_with_proxy.c
+	$(CC) -c server_with_proxy.c $(CFLAGS)
+
+server_with_proxy: server_with_proxy.o 
+	$(CC) $(CFLAGS) server_with_proxy.o -o server_with_proxy

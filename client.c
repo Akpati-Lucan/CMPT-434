@@ -26,7 +26,7 @@ void get_data_from_server(int connect_fd){
             return;
         } else if (nbytes == 0) {
             printf("Server disconnected\n");
-            continue;
+            return;
         }
         buff[nbytes] = '\0';
         printf("Client recieved -  \n");
