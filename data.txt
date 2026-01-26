@@ -1,0 +1,35 @@
+jbs671@tux5:~/CMPT-434> ./server_without_proxy 3
+9005
+Socket successfully created..
+Socket successfully binded..
+Server listening..
+server accept the client...
+Unknown command
+Unknown command
+Client disconnected
+
+
+
+jbs671@tux5:~/CMPT-434> ./client 39005 tux5
+Socket successfully created..
+connection with the server failed...
+jbs671@tux5:~/CMPT-434> ./client 39005 tux5
+Socket successfully created..
+connected to the server..
+Enter the string: add 5 hello
+Enter the string: add 6 hehe
+Enter the string: getall
+Client recieved -  
+Key: 5, Value: hello
+Key: 6, Value: hehe
+Enter the string: getvalue
+Client recieved -  
+get_val for Key: 6, Value: hehe
+Enter the string: getvaue 5
+Enter the string: remove 5
+Enter the string: getall
+Client recieved -  
+Key: 6, Value: hehe
+Enter the string: quit
+Client Exit...
+jbs671@tux5:~/CMPT-434> 
