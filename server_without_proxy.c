@@ -73,6 +73,7 @@ char* get_value(int key){
 
     return dict[key].value;
 }
+
 char* get_all() {
     /* Allocate a large enough buffer */
     char* response = malloc(4096);
@@ -92,7 +93,6 @@ char* get_all() {
 
     return response;  /* caller must free() this */
 }
-
 
 void remove_key(int key){
     /* Validate key */
