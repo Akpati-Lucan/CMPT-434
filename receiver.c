@@ -16,15 +16,16 @@
 
 
 struct addrinfo hints, *sendinfo;
-struct sockaddr_in receiver_info;
+struct sockaddr_in *ipv4, receiver_info, sender_info;
 int sender_port, receiver_port, udp_socket;
 char *hostname, sender_port_str[16];
+socklen_t sender_len = sizeof(sender_info);
 
 void send_msg(char *buff, struct sockaddr_in *remote_addr, socklen_t addr_len)
 {
     int status = sendto(udp_socket,
                         buff,
-                        strlen(buff),  // send full string
+                        strlen(buff),
                         0,
                         (struct sockaddr *)remote_addr,
                         addr_len);
@@ -33,12 +34,11 @@ void send_msg(char *buff, struct sockaddr_in *remote_addr, socklen_t addr_len)
     }
 }
 
-// Receive message and get sender address
 int receive(char *buff, int buff_size, struct sockaddr_in *sender_addr, socklen_t *addr_len)
 {
     int nbytes = recvfrom(udp_socket,
                           buff,
-                          buff_size - 1, // leave space for null-terminator
+                          buff_size - 1,
                           0,
                           (struct sockaddr *)sender_addr,
                           addr_len);
@@ -46,7 +46,7 @@ int receive(char *buff, int buff_size, struct sockaddr_in *sender_addr, socklen_
         perror("Receiver Failed to Receive Message");
         return -1;
     }
-    buff[nbytes] = '\0'; // null-terminate string
+    buff[nbytes] = '\0';
     return nbytes;
 }
 
@@ -57,13 +57,13 @@ int main(int argc, char *arg[])
     int status;
     /* Check Command line arguments validity */
     if (argc != 4) {
-        printf("Usage: ./s-chat  <receiver port> <hostname> <sender port>\n");
+        printf("Usage: ./receiver  <receiver port> <hostname> <sender port>\n");
         exit(-1);
     }
 
     receiver_port = atoi(arg[1]);
     hostname = arg[2];
-    sender_port = atoi(arg[2]);
+    sender_port = atoi(arg[3]);
     sprintf(sender_port_str, "%d", sender_port);
 
     /* Collect command line arguments */
@@ -86,6 +86,8 @@ int main(int argc, char *arg[])
 	    exit(1);
     } 
 
+    ipv4 = (struct sockaddr_in *) sendinfo->ai_addr;
+
     /* Create Socket*/
     udp_socket = socket(sendinfo->ai_family,
                         sendinfo->ai_socktype,
@@ -95,11 +97,18 @@ int main(int argc, char *arg[])
         exit(1);
     }
 
-    /* Making local address structure */
+    /* Making Sender address structure */
     memset(&receiver_info, 0, sizeof(receiver_info));
     receiver_info.sin_family = AF_INET;
     receiver_info.sin_port = htons(receiver_port);
     receiver_info.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    /* Making Receiver address Structure */
+    memset(&sender_info, 0, sizeof(sender_info));
+    sender_info.sin_family = AF_INET;
+    sender_info.sin_port = htons(sender_port);
+    sender_info.sin_addr = ipv4->sin_addr;
+
 
     /* Bind socket to port*/
     if (bind(   udp_socket, 
@@ -112,13 +121,14 @@ int main(int argc, char *arg[])
     
     while (1)
     {
-    printf("Receiver received \n");
-    memset(buff, 0, sizeof(buff));
-    receive(buff, sizeof(buff));
+    if (receive(buff, sizeof(buff), &receiver_info, &sender_len) > 0) {
+        printf("Received: %s\n", buff);
 
-    printf("Enter the string: ");
-    if (fgets(buff, sizeof(buff), stdin) == NULL) break;
-    send_msg(buff);
+        printf("Enter reply: ");
+        if (fgets(buff, sizeof(buff), stdin) == NULL) break;
+
+        send_msg(buff, &sender_info, sender_len);
+    }
     }
 
     freeaddrinfo(sendinfo);
