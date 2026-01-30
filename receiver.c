@@ -16,40 +16,34 @@
 
 
 struct addrinfo hints, *sendinfo;
-struct sockaddr_in *ipv4, sender_info, receiver_info;
+struct sockaddr_in receiver_info;
 int sender_port, receiver_port, udp_socket;
 char *hostname, sender_port_str[16];
 
 void send(char *buff)
 {
     int status;
-    socklen_t to_len;
-        
-    to_len = sizeof(receiver_info);
     status = sendto(udp_socket, 
                     buff, 
-                    sizeof(*buff),
+                    strlen(buff),
                     0, 
-                    (struct sockaddr *)&sender_info, 
-                    to_len);
+                    sendinfo->ai_addr,
+                    sendinfo->ai_addrlen);
     if (status == -1) {
         perror("Sender Failed to Send Message");
     }
 }
 
 
-void receive(char *buff) 
+void receive(char *buff, int buff_size) 
 {
     int status;
-    socklen_t from_len;
-
-    from_len = sizeof(receiver_info);
     status = recvfrom(  udp_socket, 
                         &buff, 
-                        sizeof(*buff),
+                        buff_size,
 		                0, 
-                        (struct sockaddr *)&sender_info, 
-                        &from_len);
+                        sendinfo->ai_addr,
+                        sendinfo->ai_addrlen);
     if (status == -1){
         perror("Sender Failed to Send Message");
         return;
@@ -59,6 +53,7 @@ void receive(char *buff)
 
 int main(int argc, char *arg[])
 {
+    char buff[1024];
     int status;
     /* Check Command line arguments validity */
     if (argc != 4) {
@@ -66,9 +61,9 @@ int main(int argc, char *arg[])
         exit(-1);
     }
 
-    receiver_port = atoi(arg[3]);
+    receiver_port = atoi(arg[1]);
     hostname = arg[2];
-    sender_port = atoi(arg[1]);
+    sender_port = atoi(arg[2]);
     sprintf(sender_port_str, "%d", sender_port);
 
     /* Collect command line arguments */
@@ -79,9 +74,9 @@ int main(int argc, char *arg[])
     }
 
     memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;
+    hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_DGRAM;
-    hints.ai_flags = AI_PASSIVE;
+    hints.ai_flags = 0;
 
     if (( status = getaddrinfo (hostname, 
 			                    sender_port_str, 
@@ -91,10 +86,10 @@ int main(int argc, char *arg[])
 	    exit(1);
     } 
 
-    ipv4 = (struct sockaddr_in *) sendinfo->ai_addr;
-
     /* Create Socket*/
-    udp_socket = socket(AF_INET, SOCK_DGRAM, 0);
+    udp_socket = socket(sendinfo->ai_family,
+                        sendinfo->ai_socktype,
+                        sendinfo->ai_protocol);
     if (udp_socket == -1) {
         perror("Socket creation failed!");
         exit(1);
@@ -106,12 +101,6 @@ int main(int argc, char *arg[])
     receiver_info.sin_port = htons(receiver_port);
     receiver_info.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    /* Making Remote address Structure */
-    memset(&sender_info, 0, sizeof(sender_info));
-    sender_info.sin_family = AF_INET;
-    sender_info.sin_port = htons(sender_port);
-    sender_info.sin_addr = ipv4->sin_addr;
-
     /* Bind socket to port*/
     if (bind(   udp_socket, 
                 (struct sockaddr *)&receiver_info, 
@@ -120,5 +109,19 @@ int main(int argc, char *arg[])
         exit(1);
     }
 
+    
+    while (1)
+    {
+    printf("Receiver received \n");
+    memset(buff, 0, sizeof(buff));
+    receive(buff, sizeof(buff));
+
+    printf("Enter the string: ");
+    if (fgets(buff, sizeof(buff), stdin) == NULL) break;
+    send(buff);
+    }
+
+    freeaddrinfo(sendinfo);
+    close(udp_socket);
     return 0;
 }
