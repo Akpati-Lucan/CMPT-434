@@ -20,34 +20,34 @@ struct sockaddr_in receiver_info;
 int sender_port, receiver_port, udp_socket;
 char *hostname, sender_port_str[16];
 
-void send(char *buff)
+void send_msg(char *buff, struct sockaddr_in *remote_addr, socklen_t addr_len)
 {
-    int status;
-    status = sendto(udp_socket, 
-                    buff, 
-                    strlen(buff),
-                    0, 
-                    sendinfo->ai_addr,
-                    sendinfo->ai_addrlen);
+    int status = sendto(udp_socket,
+                        buff,
+                        strlen(buff),  // send full string
+                        0,
+                        (struct sockaddr *)remote_addr,
+                        addr_len);
     if (status == -1) {
         perror("Sender Failed to Send Message");
     }
 }
 
-
-void receive(char *buff, int buff_size) 
+// Receive message and get sender address
+int receive(char *buff, int buff_size, struct sockaddr_in *sender_addr, socklen_t *addr_len)
 {
-    int status;
-    status = recvfrom(  udp_socket, 
-                        &buff, 
-                        buff_size,
-		                0, 
-                        sendinfo->ai_addr,
-                        sendinfo->ai_addrlen);
-    if (status == -1){
-        perror("Sender Failed to Send Message");
-        return;
+    int nbytes = recvfrom(udp_socket,
+                          buff,
+                          buff_size - 1, // leave space for null-terminator
+                          0,
+                          (struct sockaddr *)sender_addr,
+                          addr_len);
+    if (nbytes == -1) {
+        perror("Receiver Failed to Receive Message");
+        return -1;
     }
+    buff[nbytes] = '\0'; // null-terminate string
+    return nbytes;
 }
 
 
@@ -118,7 +118,7 @@ int main(int argc, char *arg[])
 
     printf("Enter the string: ");
     if (fgets(buff, sizeof(buff), stdin) == NULL) break;
-    send(buff);
+    send_msg(buff);
     }
 
     freeaddrinfo(sendinfo);
