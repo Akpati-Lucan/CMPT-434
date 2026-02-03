@@ -25,7 +25,7 @@ MSG MSG_BUFFER[8];
 
 struct addrinfo hints, *sendinfo;
 struct sockaddr_in *ipv4, receiver_info, sender_info;
-int sender_port, receiver_port, udp_socket;
+int sender_port, receiver_port, udp_socket, recieve_win_size;
 char *hostname, sender_port_str[16];
 socklen_t sender_len = sizeof(sender_info);
 pthread_t sender_thread, receiver_thread;
@@ -101,6 +101,7 @@ int main(int argc, char *arg[])
     receiver_port = atoi(arg[1]);
     hostname = arg[2];
     sender_port = atoi(arg[3]);
+    recieve_win_size = atoi(arg[4]);
     sprintf(sender_port_str, "%d", sender_port);
 
     /* Collect command line arguments */

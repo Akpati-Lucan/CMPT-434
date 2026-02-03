@@ -20,14 +20,17 @@ typedef struct MSG{
     char msg[1024];
 }MSG;
 
+/* Create an array of Messages that incoming messages will be buffered into 
+    Max 8 */
+MSG MSG_BUFFER[8];
 
 /*  Create a bitmap of ACK's that will be referenced to 
     Know when a msg has been acknowledged */
-int MSG_ACK[8];
+int MSG_ACK[8] = {0};
 
 struct addrinfo hints, *recvinfo;
 struct sockaddr_in *ipv4, sender_info, receiver_info;
-int sender_port, receiver_port, udp_socket, send_win_size;
+int sender_port, receiver_port, udp_socket, send_win_size, timeout;
 char *hostname, receiver_port_str[16];
 socklen_t recv_len = sizeof(receiver_info);
 pthread_t sender_thread, receiver_thread;
@@ -72,16 +75,63 @@ int receive(MSG *msg, struct sockaddr_in *sender_addr, socklen_t *addr_len) {
 void *send_thread_func() {
     char buff[1024];
     struct MSG msg;
-    int temp_seq;
+    int start, i;
     while (1)
     {   
-        printf("Enter the string: ");
-        if (fgets(buff, sizeof(buff), stdin) == NULL) break;
+        /* Enter Messages up to the sending window size */
+        i = 0;
+        while (i < send_win_size) {
+            printf("Enter Message %d: ", i);
+            if (fgets(buff, sizeof(buff), stdin) == NULL) break;
         
-        temp_seq = seq_num_generator();
-        msg.seq_num = temp_seq;
-        strcpy(msg.msg, buff);
-        send_msg(&msg, &receiver_info, recv_len);
+            msg.seq_num = seq_num_generator();
+            strcpy(msg.msg, buff);
+            /* Copy message into buffer in case of retransmission */
+            strcpy(MSG_BUFFER[msg.seq_num].msg, buff);
+            send_msg(&msg, &receiver_info, recv_len);
+            memset(buff, 0, sizeof(buff));
+            i += 1;
+        }
+        
+        /* Sleep for the Time out period */
+        sleep(timeout);
+
+        i = 0;
+        while (i < send_win_size)
+        {
+            /* Look for the acknowlegdment of sent messages */
+            if (MSG_ACK[start] == 1){
+                strcpy(MSG_BUFFER[msg.seq_num].msg, "/0");
+                MSG_ACK[start] = 0;
+                /* Once ack has been confirmed move the start or sliding window */
+                /* Wrap around */
+                if (start == 7) {
+                    start = 0;
+                } else {
+                    start += 1;
+                }
+                i += 1;
+                continue;
+            } else {
+                /* Retransmit all messages from start to window using the stored 
+                Messages in the MSG buffer */
+                while (i < send_win_size) {
+                    i = start;
+                    msg.seq_num = i;
+                    strcpy(msg.msg, MSG_BUFFER[i].msg);
+                    /* Copy message into buffer in case of retransmission */
+                    send_msg(&msg, &receiver_info, recv_len);
+                    /* Wrap around */
+                    if (start == 7) {
+                        start = 0;
+                    } else {
+                        start += 1;
+                    }
+                    i += 1;
+                }
+                break;
+            }
+        }
     }
     pthread_exit(NULL);
 }
@@ -111,6 +161,7 @@ int main(int argc, char *arg[])
     hostname = arg[2];
     receiver_port = atoi(arg[3]);
     send_win_size = atoi(arg[4]);
+    timeout = atoi(arg[5]);
     sprintf(receiver_port_str, "%d", receiver_port);
 
     /* Collect command line arguments */
