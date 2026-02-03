@@ -14,6 +14,14 @@
 #include <unistd.h>
 #include <pthread.h>
 
+typedef struct MSG{
+	int seq_num;
+    char msg[1024];
+}MSG;
+
+/* Create an array of Messages that incoming messages will be buffered into 
+    Max 8 */
+MSG MSG_BUFFER[8];
 
 struct addrinfo hints, *sendinfo;
 struct sockaddr_in *ipv4, receiver_info, sender_info;
@@ -21,11 +29,11 @@ int sender_port, receiver_port, udp_socket;
 char *hostname, sender_port_str[16];
 socklen_t sender_len = sizeof(sender_info);
 
-void send_msg(char *buff, struct sockaddr_in *remote_addr, socklen_t addr_len)
+void send_msg(MSG *msg, struct sockaddr_in *remote_addr, socklen_t addr_len)
 {
     int status = sendto(udp_socket,
-                        buff,
-                        strlen(buff),
+                        msg,
+                        sizeof(*msg),
                         0,
                         (struct sockaddr *)remote_addr,
                         addr_len);
@@ -34,11 +42,13 @@ void send_msg(char *buff, struct sockaddr_in *remote_addr, socklen_t addr_len)
     }
 }
 
-int receive(char *buff, int buff_size, struct sockaddr_in *sender_addr, socklen_t *addr_len)
+/* When an Incoming message is received it buffers it in the 
+    index of the msg_buffer array */
+int receive(MSG *msg, struct sockaddr_in *sender_addr, socklen_t *addr_len)
 {
     int nbytes = recvfrom(udp_socket,
-                          buff,
-                          buff_size - 1,
+                          msg,
+                          sizeof(*msg),
                           0,
                           (struct sockaddr *)sender_addr,
                           addr_len);
@@ -46,7 +56,7 @@ int receive(char *buff, int buff_size, struct sockaddr_in *sender_addr, socklen_
         perror("Receiver Failed to Receive Message");
         return -1;
     }
-    buff[nbytes] = '\0';
+    strcpy(MSG_BUFFER[msg->seq_num].msg, msg->msg);
     return nbytes;
 }
 
@@ -55,9 +65,11 @@ int main(int argc, char *arg[])
 {
     char buff[1024];
     int status;
+    struct MSG msg;
     /* Check Command line arguments validity */
-    if (argc != 4) {
-        printf("Usage: ./receiver  <receiver port> <hostname> <sender port>\n");
+    if (argc != 5) {
+        printf("Usage: ./receiver  <receiver port> <hostname> <sender port> \
+                <sending window size> \n");
         exit(-1);
     }
 
@@ -121,13 +133,15 @@ int main(int argc, char *arg[])
     
     while (1)
     {
-    if (receive(buff, sizeof(buff), &receiver_info, &sender_len) > 0) {
-        printf("Received: %s\n", buff);
+    if (receive(&msg, &receiver_info, &sender_len) > 0) {
+        printf("Received: %s\n", msg.msg);
 
         printf("Enter reply: ");
         if (fgets(buff, sizeof(buff), stdin) == NULL) break;
 
-        send_msg(buff, &sender_info, sender_len);
+        msg.seq_num = 5;
+        strcpy(msg.msg, buff);
+        send_msg(&msg, &sender_info, sender_len);
     }
     }
 

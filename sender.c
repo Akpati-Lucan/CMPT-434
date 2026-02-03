@@ -15,18 +15,34 @@
 #include <pthread.h>
 
 
+typedef struct MSG{
+	int seq_num;
+    char msg[1024];
+}MSG;
+
+
+/*  Create a bitmap of ACK's that will be referenced to 
+    Know when a msg has been acknowledged */
+int MSG_ACK[8];
+
 struct addrinfo hints, *recvinfo;
 struct sockaddr_in *ipv4, sender_info, receiver_info;
 int sender_port, receiver_port, udp_socket;
 char *hostname, receiver_port_str[16];
 socklen_t recv_len = sizeof(receiver_info);
+int sequence_number = 0;
+
+int seq_num_generator(){
+    return sequence_number % 7;
+    sequence_number += 1;
+}
 
 
-void send_msg(char *buff, struct sockaddr_in *remote_addr, socklen_t addr_len)
+void send_msg(MSG *msg, struct sockaddr_in *remote_addr, socklen_t addr_len)
 {
     int status = sendto(udp_socket,
-                        buff,
-                        strlen(buff),
+                        msg,
+                        sizeof(*msg),
                         0,
                         (struct sockaddr *)remote_addr,
                         addr_len);
@@ -35,11 +51,11 @@ void send_msg(char *buff, struct sockaddr_in *remote_addr, socklen_t addr_len)
     }
 }
 
-int receive(char *buff, int buff_size, struct sockaddr_in *sender_addr, socklen_t *addr_len)
+int receive(MSG *msg, struct sockaddr_in *sender_addr, socklen_t *addr_len)
 {
     int nbytes = recvfrom(udp_socket,
-                          buff,
-                          buff_size - 1,
+                          msg,
+                          sizeof(*msg),
                           0,
                           (struct sockaddr *)sender_addr,
                           addr_len);
@@ -47,7 +63,7 @@ int receive(char *buff, int buff_size, struct sockaddr_in *sender_addr, socklen_
         perror("Receiver Failed to Receive Message");
         return -1;
     }
-    buff[nbytes] = '\0';
+    /* Immediately an ack is received update the ack bit map*/
     return nbytes;
 }
 
@@ -55,10 +71,12 @@ int main(int argc, char *arg[])
 {
     
     char buff[1024];
-    int status;
+    int status, temp_seq;
+    struct MSG msg;
     /* Check Command line arguments validity */
-    if (argc != 4) {
-        printf("Usage: ./sender <sender port> <hostname> <receiver port>\n");
+    if (argc != 6) {
+        printf("Usage: ./sender <sender port> <hostname> <receiver port> \
+            <sending window size> <timeout> \n");
         exit(-1);
     }
 
@@ -123,13 +141,16 @@ int main(int argc, char *arg[])
     {
     printf("Enter the string: ");
     if (fgets(buff, sizeof(buff), stdin) == NULL) break;
-
-    send_msg(buff, &receiver_info, recv_len);
+    
+    temp_seq = seq_num_generator();
+    msg.seq_num = temp_seq;
+    strcpy(msg.msg, buff);
+    send_msg(&msg, &receiver_info, recv_len);
 
     printf("Sender received \n");
-    memset(buff, 0, sizeof(buff));
-    if (receive(buff, sizeof(buff), &receiver_info, &recv_len) > 0) {
-        printf("Received: %s\n", buff);
+    memset(msg.msg, 0, sizeof(msg.msg));
+    if (receive(&msg, &receiver_info, &recv_len) > 0) {
+        printf("Received: %s\n", msg.msg);
     }
     }
 
