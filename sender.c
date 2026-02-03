@@ -27,19 +27,21 @@ int MSG_ACK[8];
 
 struct addrinfo hints, *recvinfo;
 struct sockaddr_in *ipv4, sender_info, receiver_info;
-int sender_port, receiver_port, udp_socket;
+int sender_port, receiver_port, udp_socket, send_win_size;
 char *hostname, receiver_port_str[16];
 socklen_t recv_len = sizeof(receiver_info);
+pthread_t sender_thread, receiver_thread;
 int sequence_number = 0;
 
 int seq_num_generator(){
-    return sequence_number % 7;
+    int temp_seq;
+    temp_seq = sequence_number % 7;
     sequence_number += 1;
+    return temp_seq;
 }
 
+void send_msg(MSG *msg, struct sockaddr_in *remote_addr, socklen_t addr_len) {
 
-void send_msg(MSG *msg, struct sockaddr_in *remote_addr, socklen_t addr_len)
-{
     int status = sendto(udp_socket,
                         msg,
                         sizeof(*msg),
@@ -51,8 +53,8 @@ void send_msg(MSG *msg, struct sockaddr_in *remote_addr, socklen_t addr_len)
     }
 }
 
-int receive(MSG *msg, struct sockaddr_in *sender_addr, socklen_t *addr_len)
-{
+int receive(MSG *msg, struct sockaddr_in *sender_addr, socklen_t *addr_len) {
+
     int nbytes = recvfrom(udp_socket,
                           msg,
                           sizeof(*msg),
@@ -67,12 +69,37 @@ int receive(MSG *msg, struct sockaddr_in *sender_addr, socklen_t *addr_len)
     return nbytes;
 }
 
+void *send_thread_func() {
+    char buff[1024];
+    struct MSG msg;
+    int temp_seq;
+    while (1)
+    {   
+        printf("Enter the string: ");
+        if (fgets(buff, sizeof(buff), stdin) == NULL) break;
+        
+        temp_seq = seq_num_generator();
+        msg.seq_num = temp_seq;
+        strcpy(msg.msg, buff);
+        send_msg(&msg, &receiver_info, recv_len);
+    }
+    pthread_exit(NULL);
+}
+
+
+void *receive_thread_func() {
+    struct MSG msg;
+    while (1) {
+        memset(msg.msg, 0, sizeof(msg.msg));
+        if (receive(&msg, &receiver_info, &recv_len) > 0) {
+            printf("Sequence Number: %d\nMessage: %s\n", msg.seq_num, msg.msg);
+        }
+    }
+    pthread_exit(NULL);
+}
 int main(int argc, char *arg[])
 {
-    
-    char buff[1024];
-    int status, temp_seq;
-    struct MSG msg;
+    int status;
     /* Check Command line arguments validity */
     if (argc != 6) {
         printf("Usage: ./sender <sender port> <hostname> <receiver port> \
@@ -83,6 +110,7 @@ int main(int argc, char *arg[])
     sender_port = atoi(arg[1]);
     hostname = arg[2];
     receiver_port = atoi(arg[3]);
+    send_win_size = atoi(arg[4]);
     sprintf(receiver_port_str, "%d", receiver_port);
 
     /* Collect command line arguments */
@@ -137,22 +165,23 @@ int main(int argc, char *arg[])
         exit(1);
     }
 
-    while (1)
-    {
-    printf("Enter the string: ");
-    if (fgets(buff, sizeof(buff), stdin) == NULL) break;
-    
-    temp_seq = seq_num_generator();
-    msg.seq_num = temp_seq;
-    strcpy(msg.msg, buff);
-    send_msg(&msg, &receiver_info, recv_len);
+    /* Create a thread that just sends messages */
+    if (pthread_create(&sender_thread, NULL, send_thread_func, NULL) != 0) {
+        perror("pthread_create failed");
+        return 1;
+    }
 
-    printf("Sender received \n");
-    memset(msg.msg, 0, sizeof(msg.msg));
-    if (receive(&msg, &receiver_info, &recv_len) > 0) {
-        printf("Received: %s\n", msg.msg);
+    /* Create a thread that just receives messages */
+    if (pthread_create(&receiver_thread, NULL, receive_thread_func, NULL) != 0) {
+        perror("pthread_create failed");
+        return 1;
     }
-    }
+
+    /* Do NOT join – accept thread runs forever */
+    pthread_detach(sender_thread);
+
+    /* main can now do other work or sleep */
+    pause();
 
     freeaddrinfo(recvinfo);
     close(udp_socket);
