@@ -39,6 +39,16 @@ pthread_mutex_t ack_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t send_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
+void print_buffer(){
+    int i;
+    printf("Window Size - %d\n", send_win_size);
+    printf("Base seq number - %d\n", base_seq);
+    for (i = 0; i < 8; i++){
+        printf("Sequence Number: %d Message: %s\n", MSG_BUFFER[i].seq_num, MSG_BUFFER[i].msg);
+        printf("ACK BITMAP %d\n", MSG_ACK[i]);
+    }
+}
+
 int in_send_window(int seq, int base, int win) {
     if (base + win < SEQ_SPACE)
         return (seq >= base && seq < base + win);
@@ -134,6 +144,7 @@ void *send_thread_func() {
         strcpy(msg.msg, buff);
         /* Copy message into buffer in case of retransmission */
         strcpy(MSG_BUFFER[msg.seq_num].msg, buff);
+        MSG_BUFFER[msg.seq_num].seq_num = msg.seq_num;
 
         send_msg(&msg, &receiver_info, recv_len);
 
@@ -163,12 +174,12 @@ void *receive_thread_func() {
         if (receive(&msg, &receiver_info, &recv_len) > 0) {
             /* printf("Sequence Number: %d\nMessage: %s\n", msg.seq_num, msg.msg); */
             if (strcmp(msg.msg, "ACK") == 0){
+                print_buffer();
                 /* Set the ACK bit of the seq_num just received */
                 pthread_mutex_lock(&ack_mutex);
                 
                 if (in_send_window(msg.seq_num, base_seq, send_win_size)){
                     MSG_ACK[msg.seq_num] = 1;
-                    
                     while (MSG_ACK[base_seq] == 1) {
                         MSG_ACK[base_seq] = 0;
                         base_seq = (base_seq + 1) % SEQ_SPACE;

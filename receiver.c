@@ -25,6 +25,8 @@ typedef struct MSG{
 /* Create an array of Messages that incoming messages will be buffered into 
     Max SEQ_SPACE */
 MSG MSG_BUFFER[SEQ_SPACE];
+int RECEIVED[SEQ_SPACE] = {0};
+
 
 struct addrinfo hints, *sendinfo;
 struct sockaddr_in *ipv4, receiver_info, sender_info;
@@ -33,6 +35,15 @@ char *hostname, sender_port_str[16];
 socklen_t sender_len = sizeof(sender_info);
 pthread_t receiver_thread;
 int base_seq = 0;
+
+void print_buffer(){
+    int i;
+    printf("Window Size - %d\n", recieve_win_size);
+    printf("Base seq number - %d\n", base_seq);
+    for (i = 0; i < 8; i++){
+        printf("Sequence Number: %d Message: %s\n", MSG_BUFFER[i].seq_num, MSG_BUFFER[i].msg);
+    }
+}
 
 void send_msg(MSG *msg, struct sockaddr_in *remote_addr, socklen_t addr_len) {
 
@@ -106,11 +117,22 @@ void *receive_thread_func() {
             if (msg.seq_num != base_seq){
                 /* Buffer Out of order Messages */
                 strcpy(MSG_BUFFER[msg.seq_num].msg, msg.msg);
+                MSG_BUFFER[msg.seq_num].seq_num = msg.seq_num;
+                RECEIVED[msg.seq_num] = 1;
             } else {
                 /* Advance base_seq */
-                strcpy(MSG_BUFFER[msg.seq_num].msg, '\0');
+                MSG_BUFFER[msg.seq_num].msg[0] = '\0';
+                RECEIVED[msg.seq_num] = 0;
                 base_seq = (base_seq + 1) % SEQ_SPACE;
+
+                /* Slide window forward for any consecutive received packets */
+                while (RECEIVED[base_seq]) {
+                    MSG_BUFFER[base_seq].msg[0] = '\0';
+                    RECEIVED[base_seq] = 0;
+                    base_seq = (base_seq + 1) % SEQ_SPACE;
+                }
             }
+            print_buffer();
         } 
     }
     pthread_exit(NULL);
