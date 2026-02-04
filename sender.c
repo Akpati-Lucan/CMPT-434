@@ -14,19 +14,19 @@
 #include <unistd.h>
 #include <pthread.h>
 
-
+#define SEQ_SPACE 8
 typedef struct MSG{
 	int seq_num;
-    char msg[1024];
+    char msg[128];
 }MSG;
 
 /* Create an array of Messages that incoming messages will be buffered into 
-    Max 8 */
-MSG MSG_BUFFER[8];
+    Max SEQ_SPACE */
+MSG MSG_BUFFER[SEQ_SPACE];
 
 /*  Create a bitmap of ACK's that will be referenced to 
     Know when a msg has been acknowledged */
-int MSG_ACK[8] = {0};
+int MSG_ACK[SEQ_SPACE] = {0};
 
 struct addrinfo hints, *recvinfo;
 struct sockaddr_in *ipv4, sender_info, receiver_info;
@@ -34,13 +34,16 @@ int sender_port, receiver_port, udp_socket, send_win_size, timeout;
 char *hostname, receiver_port_str[16];
 socklen_t recv_len = sizeof(receiver_info);
 pthread_t sender_thread, receiver_thread;
-int sequence_number = 0;
+int base_seq = 0, next_seq = 0;
+pthread_mutex_t ack_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t send_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-int seq_num_generator(){
-    int temp_seq;
-    temp_seq = sequence_number % 7;
-    sequence_number += 1;
-    return temp_seq;
+
+int in_send_window(int seq, int base, int win) {
+    if (base + win < SEQ_SPACE)
+        return (seq >= base && seq < base + win);
+    else
+        return (seq >= base || seq < (base + win) % SEQ_SPACE);
 }
 
 void send_msg(MSG *msg, struct sockaddr_in *remote_addr, socklen_t addr_len) {
@@ -72,81 +75,113 @@ int receive(MSG *msg, struct sockaddr_in *sender_addr, socklen_t *addr_len) {
     return nbytes;
 }
 
-void *send_thread_func() {
-    char buff[1024];
+/*  Function that hadles retransmition 
+    It creates a tread for each package 
+    And thread takes in the sequense number as parameter
+    Thread constantly checks if ACK has been received and 
+    retransmits if not */
+void *retransmit_func(void *arg) {
+
     struct MSG msg;
-    int start, i;
-    while (1)
-    {   
-        /* Enter Messages up to the sending window size */
-        i = 0;
-        while (i < send_win_size) {
-            printf("Enter Message %d: ", i);
-            if (fgets(buff, sizeof(buff), stdin) == NULL) break;
-        
-            msg.seq_num = seq_num_generator();
-            strcpy(msg.msg, buff);
-            /* Copy message into buffer in case of retransmission */
-            strcpy(MSG_BUFFER[msg.seq_num].msg, buff);
-            send_msg(&msg, &receiver_info, recv_len);
-            memset(buff, 0, sizeof(buff));
-            i += 1;
-        }
-        
+    int seq_num = *(int *)arg;
+    free(arg);
+
+    /* While message is still not Acknowledged */
+    while(1) {
         /* Sleep for the Time out period */
         sleep(timeout);
-
-        i = 0;
-        while (i < send_win_size)
-        {
-            /* Look for the acknowlegdment of sent messages */
-            if (MSG_ACK[start] == 1){
-                strcpy(MSG_BUFFER[msg.seq_num].msg, "/0");
-                MSG_ACK[start] = 0;
-                /* Once ack has been confirmed move the start or sliding window */
-                /* Wrap around */
-                if (start == 7) {
-                    start = 0;
-                } else {
-                    start += 1;
-                }
-                i += 1;
-                continue;
-            } else {
-                /* Retransmit all messages from start to window using the stored 
-                Messages in the MSG buffer */
-                while (i < send_win_size) {
-                    i = start;
-                    msg.seq_num = i;
-                    strcpy(msg.msg, MSG_BUFFER[i].msg);
-                    /* Copy message into buffer in case of retransmission */
-                    send_msg(&msg, &receiver_info, recv_len);
-                    /* Wrap around */
-                    if (start == 7) {
-                        start = 0;
-                    } else {
-                        start += 1;
-                    }
-                    i += 1;
-                }
-                break;
-            }
+        
+        pthread_mutex_lock(&ack_mutex);
+        if (MSG_ACK[seq_num] == 1) {
+            MSG_ACK[seq_num] = 0;
+            pthread_mutex_unlock(&ack_mutex);
+            break;
         }
+        pthread_mutex_unlock(&ack_mutex);
+
+        /* Load message to be retransmitted with correct data*/
+        msg.seq_num = seq_num;
+        strcpy(msg.msg, MSG_BUFFER[seq_num].msg);
+        /* Retransmit */
+        send_msg(&msg, &receiver_info, recv_len);
     }
     pthread_exit(NULL);
 }
 
+void *send_thread_func() {
+    char buff[1024];
+    struct MSG msg;
+    pthread_t retransmit_thread;
+    int *seq_arg;
+
+    while (1)
+    {
+        pthread_mutex_lock(&send_mutex);
+
+        if (!in_send_window(next_seq, base_seq, send_win_size)) {
+            pthread_mutex_unlock(&send_mutex);
+            usleep(10000);
+            continue;
+        }
+
+        printf("Enter Message: ");
+        if (fgets(buff, sizeof(buff), stdin) == NULL) {
+            pthread_mutex_unlock(&send_mutex);
+            break;
+        }
+
+        msg.seq_num = next_seq;
+        strcpy(msg.msg, buff);
+        /* Copy message into buffer in case of retransmission */
+        strcpy(MSG_BUFFER[msg.seq_num].msg, buff);
+
+        send_msg(&msg, &receiver_info, recv_len);
+
+        seq_arg = malloc(sizeof(int));
+        *seq_arg = msg.seq_num;
+        /* Create a thread that just retransmits messages */
+        if (pthread_create(&retransmit_thread, NULL, retransmit_func, seq_arg) != 0) {
+            perror("pthread_create failed");
+            pthread_exit(NULL);
+        }
+        pthread_detach(retransmit_thread);
+
+        memset(buff, 0, sizeof(buff));
+        next_seq = (next_seq + 1) % SEQ_SPACE;
+        
+        pthread_mutex_unlock(&send_mutex);
+    }
+    
+    pthread_exit(NULL);
+}
+    
 
 void *receive_thread_func() {
     struct MSG msg;
     while (1) {
         memset(msg.msg, 0, sizeof(msg.msg));
         if (receive(&msg, &receiver_info, &recv_len) > 0) {
-            printf("Sequence Number: %d\nMessage: %s\n", msg.seq_num, msg.msg);
+            /* printf("Sequence Number: %d\nMessage: %s\n", msg.seq_num, msg.msg); */
+            if (strcmp(msg.msg, "ACK") == 0){
+                /* Set the ACK bit of the seq_num just received */
+                pthread_mutex_lock(&ack_mutex);
+                
+                if (in_send_window(msg.seq_num, base_seq, send_win_size)){
+                    MSG_ACK[msg.seq_num] = 1;
+                    
+                    while (MSG_ACK[base_seq] == 1) {
+                        MSG_ACK[base_seq] = 0;
+                        base_seq = (base_seq + 1) % SEQ_SPACE;
+                    }
+                }
+                pthread_mutex_unlock(&ack_mutex);
+            }   
         }
     }
     pthread_exit(NULL);
 }
+
+
 int main(int argc, char *arg[])
 {
     int status;
