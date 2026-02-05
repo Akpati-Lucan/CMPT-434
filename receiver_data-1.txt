@@ -1,0 +1,218 @@
+jbs671@tux5:~/CMPT-434> ./receiver 39002 tux5 39001 3
+Sequence Number: 2
+Message: C
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 0
+Message: A
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 1
+Message: B
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 3
+Message: D
+
+Has the Message been Delivered Correctly: 
+Sequence Number: 4
+Message: E
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 3
+Message: D
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 5
+Message: F
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 3
+Message: D
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: N
+Sequence Number: 3
+Message: D
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 6
+Message: G
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 6
+Message: G
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 6
+Message: G
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 6
+Message: G
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 6
+Message: G
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 7
+Message: H
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 0
+Message: I
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 6
+Message: G
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 7
+Message: H
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 0
+Message: I
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 6
+Message: G
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 1
+Message: J
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 2
+Message: K
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 2
+Message: K
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 2
+Message: K
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 2
+Message: K
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 2
+Message: K
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 2
+Message: K
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 2
+Message: K
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 2
+Message: K
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 2
+Message: K
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 3
+Message: L
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 4
+Message: M
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 2
+Message: K
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 3
+Message: L
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 4
+Message: M
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 2
+Message: K
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 3
+Message: L
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 4
+Message: M
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 2
+Message: K
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 5
+Message: O
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 6
+Message: P
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 5
+Message: O
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 6
+Message: P
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 5
+Message: O
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 6
+Message: P
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 5
+Message: O
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 7
+Message: Q
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 0
+Message: R
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 1
+Message: S
+
+Has the Message been Delivered Correctly: ^C

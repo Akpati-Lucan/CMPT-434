@@ -1,0 +1,9 @@
+jbs671@tux5:~/CMPT-434> ./sender 39001 tux5 39002 4 3
+Enter Message: A
+Enter Message: B
+Enter Message: C
+Enter Message: D
+Enter Message: E
+Enter Message: F
+Enter Message: G
+Enter Message: ^C

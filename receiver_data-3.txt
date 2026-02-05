@@ -1,0 +1,68 @@
+
+jbs671@tux5:~/CMPT-434> ./receiver 39002 tux5 39001 2
+Sequence Number: 0
+Message: A
+
+Has the Message been Delivered Correctly: Y       
+Should Ack be delivered and not dropped: Y
+Sequence Number: 1
+Message: B
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 2
+Message: C
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 3
+Message: D
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 3
+Message: D
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 3
+Message: D
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 3
+Message: D
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 3
+Message: D
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 4
+Message: E
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 3
+Message: D
+
+Has the Message been Delivered Correctly: N
+Sequence Number: 4
+Message: E
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 3
+Message: D
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 6
+Message: G
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+Sequence Number: 5
+Message: F
+
+Has the Message been Delivered Correctly: Y
+Should Ack be delivered and not dropped: Y
+^C
+jbs671@tux5:~/CMPT-434> 
