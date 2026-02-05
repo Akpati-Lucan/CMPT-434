@@ -17,7 +17,7 @@
 #define SEQ_SPACE 8
 typedef struct MSG{
 	int seq_num;
-    char msg[128];
+    char msg[64];
 }MSG;
 
 /* Create an array of Messages that incoming messages will be buffered into 
@@ -44,8 +44,10 @@ void print_buffer(){
     printf("Window Size - %d\n", send_win_size);
     printf("Base seq number - %d\n", base_seq);
     for (i = 0; i < 8; i++){
-        printf("Sequence Number: %d Message: %s\n", MSG_BUFFER[i].seq_num, MSG_BUFFER[i].msg);
-        printf("ACK BITMAP %d\n", MSG_ACK[i]);
+        if (strlen(MSG_BUFFER[i].msg) > 0){
+            printf("Sequence Number: %d Message: %s\n", MSG_BUFFER[i].seq_num, MSG_BUFFER[i].msg);
+            printf("ACK BITMAP %d\n", MSG_ACK[i]);
+        }
     }
 }
 
@@ -103,8 +105,11 @@ void *retransmit_func(void *arg) {
         
         pthread_mutex_lock(&ack_mutex);
         if (MSG_ACK[seq_num] == 1) {
+            
+            base_seq = (base_seq + 1) % SEQ_SPACE;
             MSG_ACK[seq_num] = 0;
             pthread_mutex_unlock(&ack_mutex);
+            MSG_BUFFER[seq_num].msg[0] = '\0';
             break;
         }
         pthread_mutex_unlock(&ack_mutex);
@@ -119,7 +124,7 @@ void *retransmit_func(void *arg) {
 }
 
 void *send_thread_func() {
-    char buff[1024];
+    char buff[64];
     struct MSG msg;
     pthread_t retransmit_thread;
     int *seq_arg;
@@ -127,7 +132,6 @@ void *send_thread_func() {
     while (1)
     {
         pthread_mutex_lock(&send_mutex);
-
         if (!in_send_window(next_seq, base_seq, send_win_size)) {
             pthread_mutex_unlock(&send_mutex);
             usleep(10000);
@@ -174,17 +178,9 @@ void *receive_thread_func() {
         if (receive(&msg, &receiver_info, &recv_len) > 0) {
             /* printf("Sequence Number: %d\nMessage: %s\n", msg.seq_num, msg.msg); */
             if (strcmp(msg.msg, "ACK") == 0){
-                print_buffer();
                 /* Set the ACK bit of the seq_num just received */
                 pthread_mutex_lock(&ack_mutex);
-                
-                if (in_send_window(msg.seq_num, base_seq, send_win_size)){
-                    MSG_ACK[msg.seq_num] = 1;
-                    while (MSG_ACK[base_seq] == 1) {
-                        MSG_ACK[base_seq] = 0;
-                        base_seq = (base_seq + 1) % SEQ_SPACE;
-                    }
-                }
+                MSG_ACK[msg.seq_num] = 1;
                 pthread_mutex_unlock(&ack_mutex);
             }   
         }

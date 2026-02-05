@@ -19,7 +19,7 @@
 
 typedef struct MSG{
 	int seq_num;
-    char msg[128];
+    char msg[64];
 }MSG;
 
 /* Create an array of Messages that incoming messages will be buffered into 
@@ -41,7 +41,9 @@ void print_buffer(){
     printf("Window Size - %d\n", recieve_win_size);
     printf("Base seq number - %d\n", base_seq);
     for (i = 0; i < 8; i++){
-        printf("Sequence Number: %d Message: %s\n", MSG_BUFFER[i].seq_num, MSG_BUFFER[i].msg);
+        if (strlen(MSG_BUFFER[i].msg) > 0){
+            printf("Sequence Number: %d Message: %s\n", MSG_BUFFER[i].seq_num, MSG_BUFFER[i].msg);
+        }
     }
 }
 
@@ -93,7 +95,7 @@ void send_ack_func(int seq_num) {
 
 
 void *receive_thread_func() {
-    char buff[32];
+    char buff[64];
     struct MSG msg;
     while (1) {
         memset(msg.msg, 0, sizeof(msg.msg));
@@ -132,7 +134,6 @@ void *receive_thread_func() {
                     base_seq = (base_seq + 1) % SEQ_SPACE;
                 }
             }
-            print_buffer();
         } 
     }
     pthread_exit(NULL);
