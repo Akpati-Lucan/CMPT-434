@@ -1,0 +1,134 @@
+# Name: Lucan Akpati
+# NSID: jbs671
+# Student Number: 11331253
+
+------------------------------------------------------------
+1. OVERVIEW
+------------------------------------------------------------
+This program implements a reliable data transfer protocol over UDP using a
+sliding window mechanism with sequence numbers, acknowledgments (ACKs), and
+timeout-based retransmissions.
+
+Since UDP does not guarantee reliability, ordering, or delivery, these features
+are implemented at the application layer. The design is similar to the
+Selective Repeat ARQ protocol, where individual packets are retransmitted
+independently upon timeout.
+
+------------------------------------------------------------
+2. SYSTEM ARCHITECTURE
+------------------------------------------------------------
+The program is composed of the following components:
+
+1) Sender Thread
+   - Reads user input
+   - Sends messages if the sliding window allows
+   - Spawns retransmission threads
+
+2) Receiver Thread
+   - Listens for incoming ACKs
+   - Updates the ACK bitmap
+
+3) Retransmission Threads
+   - One thread per packet
+   - Retransmits packets until acknowledged
+
+4) Shared Data Structures
+   - Message buffer
+   - ACK bitmap
+   - Sliding window state variables
+
+------------------------------------------------------------
+3. DATA STRUCTURES
+------------------------------------------------------------
+
+Message Structure:
+- seq_num: Sequence number of the message
+- msg: Payload (up to 64 characters)
+
+Message Buffer:
+- Stores transmitted messages for retransmission
+- Indexed by sequence number
+- Size equals the sequence number space (8)
+
+ACK Bitmap:
+- Tracks acknowledgment status for each sequence number
+- 0 = not acknowledged
+- 1 = acknowledged
+
+------------------------------------------------------------
+4. SLIDING WINDOW DESIGN
+------------------------------------------------------------
+
+Sequence Number Space:
+- Fixed size of 8
+- Wrap-around using modulo arithmetic
+
+Window Variables:
+- base_seq: Oldest unacknowledged packet
+- next_seq: Next packet to be sent
+- send_win_size: User-defined window size
+
+Window Membership Check:
+- Determines if a sequence number is within the current send window
+- Correctly handles wrap-around cases
+
+------------------------------------------------------------
+5. THREAD DESIGN AND SYNCHRONIZATION
+------------------------------------------------------------
+
+Threads Used:
+- Sender thread
+- Receiver thread
+- Retransmission threads
+
+Synchronization:
+- ack_mutex protects access to ACK bitmap and base sequence number
+- send_mutex protects send window and buffer updates
+
+Mutexes prevent race conditions between sending, receiving ACKs, and
+retransmission operations.
+
+------------------------------------------------------------
+6. RETRANSMISSION STRATEGY
+------------------------------------------------------------
+
+Timeout Handling:
+- Each packet spawns a dedicated retransmission thread
+- The thread sleeps for a specified timeout duration
+- If the packet is not acknowledged, it is retransmitted
+- The thread terminates once an ACK is received
+
+ACK Processing:
+- Receiver thread listens for incoming messages
+- Upon receiving an ACK, the corresponding bitmap entry is set
+- This allows the retransmission thread to terminate and the window to advance
+
+------------------------------------------------------------
+7. NETWORKING DESIGN
+------------------------------------------------------------
+
+Protocol:
+- UDP (User Datagram Protocol)
+- IPv4 addressing
+- Connectionless communication
+
+Socket Operations:
+- getaddrinfo() resolves the receiver hostname
+- socket() creates a UDP socket
+- bind() binds the sender to a local port
+- sendto() transmits packets
+- recvfrom() receives ACKs
+
+------------------------------------------------------------
+8. PROGRAM FLOW
+------------------------------------------------------------
+
+Initialization:
+1) Parse and validate command-line arguments
+2) Create and bind the UDP socket
+3) Initialize shared variables and mutexes
+
+Runtime Execution:
+- Sender thread sends messages within window limits
+- Receiver thread processes ACKs
+- Retransmission threads handle timeouts and resending

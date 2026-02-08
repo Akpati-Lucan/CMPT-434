@@ -1,0 +1,125 @@
+# Name: Lucan Akpati
+# NSID: jbs671
+# Student Number: 11331253
+
+
+------------------------------------------------------------
+1. OVERVIEW
+------------------------------------------------------------
+This program implements the receiver side of a reliable data transfer protocol
+over UDP using a sliding window mechanism. It complements the sender program by
+providing in-order delivery, buffering of out-of-order packets, and generation
+of acknowledgments (ACKs).
+
+The design closely follows the Selective Repeat ARQ protocol, allowing packets
+to be received out of order and acknowledged individually.
+
+------------------------------------------------------------
+2. SYSTEM ARCHITECTURE
+------------------------------------------------------------
+The receiver program consists of the following components:
+
+1) Receiver Thread
+   - Continuously listens for incoming packets
+   - Validates sequence numbers against the receive window
+   - Buffers out-of-order packets
+   - Sends ACKs for correctly received packets
+
+2) Shared Data Structures
+   - Message buffer for received packets
+   - Bitmap tracking received sequence numbers
+   - Sliding window state variables
+
+------------------------------------------------------------
+3. DATA STRUCTURES
+------------------------------------------------------------
+
+Message Structure:
+- seq_num: Sequence number of the packet
+- msg: Payload (up to 64 characters)
+
+Message Buffer:
+- Array indexed by sequence number
+- Stores packets that arrive out of order
+
+Received Bitmap:
+- Indicates whether a packet with a given sequence number
+  has been received
+- 0 = not received
+- 1 = received
+
+------------------------------------------------------------
+4. SLIDING WINDOW DESIGN
+------------------------------------------------------------
+
+Sequence Number Space:
+- Fixed size of 8
+- Wrap-around using modulo arithmetic
+
+Window Variables:
+- base_seq: Lowest expected sequence number
+- recieve_win_size: User-defined receive window size
+
+Window Membership Check:
+- Determines whether an incoming packet’s sequence number
+  falls within the current receive window
+- Properly handles wrap-around conditions
+
+------------------------------------------------------------
+5. PACKET RECEPTION AND BUFFERING
+------------------------------------------------------------
+
+When a packet is received:
+1) If its sequence number is outside the receive window,
+   the packet is discarded.
+2) If it is within the receive window:
+   - The packet is displayed to the user
+   - Delivery success is simulated via user input
+   - ACK transmission is optionally simulated
+
+Out-of-Order Handling:
+- Packets received out of order are buffered
+- The receiver advances the base sequence number only
+  when consecutive packets have been received
+
+------------------------------------------------------------
+6. ACK GENERATION
+------------------------------------------------------------
+
+ACK packets:
+- Contain the sequence number being acknowledged
+- Use the same MSG structure as data packets
+- Are sent immediately after successful delivery
+
+ACK transmission can be intentionally dropped based on
+user input to simulate unreliable network conditions.
+
+------------------------------------------------------------
+7. NETWORKING DESIGN
+------------------------------------------------------------
+
+Protocol:
+- UDP (User Datagram Protocol)
+- IPv4 addressing
+- Connectionless communication
+
+Socket Operations:
+- getaddrinfo() resolves sender hostname
+- socket() creates a UDP socket
+- bind() binds the receiver to its local port
+- recvfrom() receives packets
+- sendto() sends ACKs
+
+------------------------------------------------------------
+8. PROGRAM FLOW
+------------------------------------------------------------
+
+Initialization:
+1) Parse and validate command-line arguments
+2) Create and bind UDP socket
+3) Initialize buffers and window variables
+
+Runtime Execution:
+- Receiver thread waits for incoming packets
+- Valid packets are processed and acknowledged
+- Window slides forward when possible
