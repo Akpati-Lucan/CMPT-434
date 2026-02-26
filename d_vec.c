@@ -20,6 +20,7 @@ struct sockaddr_in server_addr;
 int router_table_index = 0; /* Variable specifically for appending routers to the router table*/
 pthread_t accept_neighbours_thread; /* Thread that accepts incoming neigbours */ 
 pthread_t bind_listen_thread;       /* Thread that binds and listens to incoming neigbours */ 
+pthread_t connect_thread;           /* Thread that connect to incoming neigbours */ 
 
 
 /**/
@@ -38,6 +39,17 @@ struct router_info {
 struct router_info router_table[ 20 ];
 
 pthread_mutex_t table_lock = PTHREAD_MUTEX_INITIALIZER;
+
+/* Function for Initializing the Router Table */
+void init_table() {
+    int i;
+    for (i = 0; i < 20; i++) {
+        router_table[i].router_id = 0;
+        router_table[i].port_number = 0;
+        router_table[i].cost = 0;
+        router_table[i].sock_fd = 0;
+    }
+}
 
 /*  
     Function that Continually Prints the details, 
@@ -91,8 +103,9 @@ void *accept_neighbours()
             printf("Connected with neighbour from port: %d\n", neighbour_port);
         }
 
-        /*  Loop through router table and set the socket_fd of the 
-            element with the same port number 
+        /*  
+            Loop through router table and set the socket_fd,
+            of the element with the same port number 
         */
         for( i = 0; i < 20; i++) {
             if (router_table[i].port_number == neighbour_port) {
@@ -139,7 +152,7 @@ void *bind_listen_to_neighbours()
 
     /* Create a thread that just accepts new connections */
     /* Have all the accept logic be in the function of this thread */
-    if (pthread_create(&accept_neighbours_thread, NULL, accept_neighbours NULL) != 0) {
+    if (pthread_create(&accept_neighbours_thread, NULL, accept_neighbours, NULL) != 0) {
         perror("pthread_create failed");
         return 1;
     }
@@ -190,7 +203,7 @@ void *connect_to_neighbours(void *arg)
 /**/
 int main(int argc, char *arg[]){
 
-    int i;
+    int i, router_port, router_cost;
     /* Check Command line arguments validity */
     if ((argc % 2) == 0 ) {
         printf("Usage: ./d_vec <self_port_number> [ <port number> <cost> ] \n");
@@ -208,6 +221,14 @@ int main(int argc, char *arg[]){
     server_addr.sin_port = htons(8080);
     inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr);
 
+
+    
+    /* Initialize the Router Table */
+    pthread_mutex_lock(&table_lock);
+    init_table();
+    pthread_mutex_unlock(&table_lock);
+
+
     /*
         Every other CLI argument should be put in the router table in Pairs
         First argument for id and port number and second argument for weight
@@ -216,22 +237,26 @@ int main(int argc, char *arg[]){
     i = 2;
     while (i < argc) {
         /* Use atoi() to turn CLI argument to integers */
+        router_port = atoi(arg[i]);
+        router_cost = atoi(arg[i++]);
         router_table[router_table_index].router_id = router_table_index;
-        router_table[router_table_index].port_number = atoi(arg[i]);
-        router_table[router_table_index].cost = atoi(arg[i++]);
+        router_table[router_table_index].port_number = router_port;
+        router_table[router_table_index].cost = router_cost;
         i += 2;
 
-        /* Set Up a TCP socket and listen for connections
-            for any router that has lower port number than sel_port_number */
-
-        /* Set up a TCP socket and connect to any router that their
-            port number is bigger than self port number */
+        /*  
+            Set up a TCP socket and connect to any router that their
+            port number is bigger than self port number 
+        */
+        if ( router_port > self_port_number ) {
+            if (pthread_create(&connect_thread, NULL, connect_to_neighbours, router_port) != 0) {
+                perror("pthread_create failed");
+                return 1;
+            }
+        }
         
+        router_table_index += 1;
     }
-
-    /* Initialize the dictionary */
-    init_dict();
-
 
     /* Create a thread that just accepts new connections */
     /* Have all the accept logic be in the function of this thread */
