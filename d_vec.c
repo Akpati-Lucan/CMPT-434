@@ -17,10 +17,11 @@
 int self_port_number;               /* Port Number For Router Other routers will connect to this port number */
 int self_socket_fd;                 /* Socket fd for other routers to connect to */
 struct sockaddr_in server_addr;     /* Socket Address for port connections */
-int router_table_index = 0;         /* Variable specifically for appending routers to the router table*/
 pthread_t accept_neighbours_thread; /* Thread that accepts incoming neigbours */ 
 pthread_t bind_listen_thread;       /* Thread that binds and listens to incoming neigbours */ 
 pthread_t connect_thread;           /* Thread that connect to incoming neigbours */ 
+pthread_t print_thread;             /* Thread that print router table values */ 
+
 
 /*
     Each process will have a routing table of all nodes,
@@ -36,7 +37,6 @@ typedef struct {
 router_info router_table[ 20 ];
 
 pthread_mutex_t table_lock = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t table_index_lock = PTHREAD_MUTEX_INITIALIZER;
 
 #define INF 9999
 
@@ -74,7 +74,7 @@ void print_router_table()
     Function that Continually Prints the details, 
     of the router Table every two seconds
 */
-void *print_router_table()
+void *print_router_table_thread()
 {
     while (1)
     {
@@ -120,7 +120,6 @@ void *accept_neighbours()
                             &neighbour_len);
         if (connect_fd < 0) { 
             printf("Neighbour accept failed...\n"); 
-            free(connect_fd);
             continue;
         }
 
@@ -230,16 +229,17 @@ void *connect_to_neighbours(void *arg)
         }
     }
     pthread_mutex_unlock(&table_lock);
+    free(arg);
     pthread_exit(NULL);
 }
 
 /**/
 int main(int argc, char *arg[]){
 
-    int i, router_port, router_cost;
+    int i, router_port, router_cost, *arg_port;
     /* Check Command line arguments validity */
     if ((argc % 2) == 0 ) {
-        printf("Usage: ./d_vec <self_port_number> [ <port number> <cost> ] \n");
+        printf("Usage: ./d_vec <self_port_number> [ <port number> <cost> ... ] \n");
         exit(-1);
     }
 
@@ -251,7 +251,7 @@ int main(int argc, char *arg[]){
 
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(8080);
+    server_addr.sin_port = htons(self_port_number);
     inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr);
 
 
@@ -279,28 +279,31 @@ int main(int argc, char *arg[]){
             Set up a TCP socket and connect to any router that their
             port number is bigger than self port number 
         */
+        arg_port = malloc(sizeof(int));
+        *arg_port = router_port;
         if ( router_port > self_port_number ) {
-            if (pthread_create(&connect_thread, NULL, connect_to_neighbours, router_port) != 0) {
+            if (pthread_create(&connect_thread, NULL, connect_to_neighbours, arg_port) != 0) {
                 perror("pthread_create failed");
                 return 1;
             }
         }
-        pthread_mutex_lock(&table_index_lock);
-        router_table_index += 1;
-        pthread_mutex_unlock(&table_index_lock);
     }
 
     /* Create a thread that just accepts new connections */
     /* Have all the accept logic be in the function of this thread */
-     /* Create a new thread */
     if (pthread_create(&bind_listen_thread, NULL, bind_listen_to_neighbours, NULL) != 0) {
         perror("pthread_create failed");
         return 1;
     }
-
-   /* Do NOT join – accept thread runs forever */
     pthread_detach(bind_listen_thread);
 
+    if (pthread_create(&print_thread, NULL, print_router_table_thread, NULL) != 0) {
+        perror("pthread_create failed");
+        return 1;
+    }
+    pthread_detach(print_thread);
+
+    
     /* main can now do other work or sleep */
     pause();
   
