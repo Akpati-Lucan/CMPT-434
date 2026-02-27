@@ -30,8 +30,13 @@ pthread_t print_thread;             /* Thread that print router table values */
 */
 typedef struct {
     int port_number;    /* Port Number of Router */ 
-    int	cost;           /* cost to reach said router */ 
+    int	cost;           /* cost to reach neighbour said router */ 
+    int distance;       /* current estimate for the length (i.e., total path weight) 
+                        of a shortest path from router self to destination port_number */ 
     int sock_fd;        /* Socket FIle descriptor of router */ 
+    int is_neighbour;   /* Is This router a direct link */ 
+    int next_hop;       /* neighbouring router of self to which packets 
+                        with destination port_number will be forwarded  */
 } router_info;
 
 /* Maximum Number of routers in the network */
@@ -47,30 +52,39 @@ void init_table() {
     for (i = 0; i < 20; i++) {
         router_table[i].port_number = 0;
         router_table[i].cost = INF;
+        router_table[i].distance = INF;
         router_table[i].sock_fd = -1;
+        router_table[i].is_neighbour = 0;
+        router_table[i].next_hop = -1;
     }
 }
-
 void print_router_table()
 {
     int i;
-    printf("\n===== ROUTER TABLE =====\n");
-    printf("Port\tCost\tSocketFD\n");
+    printf("\n============== ROUTER TABLE ================\n");
+    printf("Port\tCost\tDistance\tSocketFD\tis_Neighbour\tNextHop\n");
 
     for (i = 0; i < 20; i++) {
-
-        /* Skip empty entries 
-        */
+        /* Skip empty entries */
         if (router_table[i].port_number == 0)
-        continue;
-        printf("%d\t%d\t%d\n",
-               router_table[i].port_number,
-               router_table[i].cost,
-               router_table[i].sock_fd);
-    }
-    printf("========================\n\n");
-}
+            continue;
 
+        printf("%d\t%d\t%d\t\t%d\t\t%s\t\t",
+            router_table[i].port_number,
+            router_table[i].cost,
+            router_table[i].distance,
+            router_table[i].sock_fd,
+            router_table[i].is_neighbour ? "true" : "false");
+
+        /* Print next_hop or "-" if invalid */
+        if (router_table[i].next_hop == -1)
+            printf("-\n");
+        else
+            printf("%d\n", router_table[i].next_hop);
+    }
+
+    printf("============================================\n\n");
+}
 /*  
     Function that Continually Prints the details, 
     of the router Table every two seconds
@@ -87,14 +101,16 @@ void *print_router_table_thread()
     pthread_exit(NULL);
 }
 
-void add_to_router_table(int port_number, int cost) {
+void add_to_router_table(int port_number, int cost, int distance, int is_neighbour) {
     int i, added;
     pthread_mutex_lock(&table_lock);
     added = 0;
     for (i = 0; i < 20; i++) {
-        if (router_table[i].sock_fd == -1) { /* empty slot */
+        if (router_table[i].port_number == 0) { /* empty slot */
             router_table[i].port_number = port_number;
             router_table[i].cost = cost;
+            router_table[i].distance = distance;
+            router_table[i].is_neighbour = is_neighbour;
             added = 1;
             break;
         }
@@ -125,9 +141,9 @@ void *accept_neighbours()
         }
 
         /* Extract client port */
-        neighbour_port = ntohs(neighbour_addr.sin_port);
-        printf("Connected with neighbour from port: %d\n", neighbour_port);
-
+        recv(connect_fd, &neighbour_port, sizeof(int), 0);
+        neighbour_port = ntohl(neighbour_port);
+        printf("Accepted neighbour connection listening on port: %d\n", neighbour_port);
         /*  
             Loop through router table and set the socket_fd,
             of the element with the same port number 
@@ -153,8 +169,6 @@ void *bind_listen_to_neighbours()
     if (self_socket_fd < 0) { 
         printf("Socket creation failed...\n"); 
         pthread_exit(NULL);
-    } else {
-        printf("Socket successfully created..\n"); 
     }
 
     /* Bind socket */ 
@@ -163,16 +177,12 @@ void *bind_listen_to_neighbours()
             sizeof(server_addr)) != 0) { 
         printf("Socket bind failed...\n"); 
         pthread_exit(NULL);
-    } else {
-        printf("Socket successfully binded..\n"); 
     }
 
     /* Now server is ready to listen and verification */
     if ((listen(self_socket_fd, 20)) != 0) { 
         printf("Listen failed...\n"); 
         exit(0); 
-    } else {
-        printf("Server listening..\n"); 
     }
 
     /* Create a thread that just accepts new connections */
@@ -190,7 +200,7 @@ void *bind_listen_to_neighbours()
 /* Connect to neighbour routers */
 void *connect_to_neighbours(void *arg)
 {
-    int neighbour_socket_fd, neighbour_port_number, i;
+    int neighbour_socket_fd, neighbour_port_number, i, my_port;
     struct sockaddr_in neighbour_addr;
     neighbour_port_number = *(int *)arg;
 
@@ -226,6 +236,10 @@ void *connect_to_neighbours(void *arg)
             }
             pthread_mutex_unlock(&table_lock);
             free(arg);
+
+            /* Send port Number */
+            my_port = htonl(self_port_number);
+            send(neighbour_socket_fd, &my_port, sizeof(int), 0);
             break;
                     
         }
@@ -275,22 +289,22 @@ int main(int argc, char *arg[]){
         /* Use atoi() to turn CLI argument to integers */
         router_port = atoi(arg[i]);
         router_cost = atoi(arg[i+1]);
-        add_to_router_table(router_port, router_cost);
-        i += 2;
-
+        add_to_router_table(router_port, router_cost, router_cost, 1);
+        
         /*  
-            Set up a TCP socket and connect to any router that their
-            port number is bigger than self port number 
+        Set up a TCP socket and connect to any router that their
+        port number is bigger than self port number 
         */
-        arg_port = malloc(sizeof(int));
-        *arg_port = router_port;
-        if ( router_port > self_port_number ) {
-            if (pthread_create(&connect_thread, NULL, connect_to_neighbours, arg_port) != 0) {
-                perror("pthread_create failed");
-                return 1;
+       arg_port = malloc(sizeof(int));
+       *arg_port = router_port;
+       if ( router_port > self_port_number ) {
+           if (pthread_create(&connect_thread, NULL, connect_to_neighbours, arg_port) != 0) {
+               perror("pthread_create failed");
+               return 1;
             }
             pthread_detach(connect_thread);
         }
+        i += 2;
     }
 
     /* Create a thread that just accepts new connections */
