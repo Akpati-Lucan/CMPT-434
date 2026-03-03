@@ -32,7 +32,7 @@ pthread_t receiver_thread;          /* Thread that receives info from neighbour 
 */
 typedef struct {
     int port_number;    /* Port Number of Router */ 
-    int	cost;           /* cost to reach neighbour said router */ 
+    int	distance;           /* distance to reach neighbour said router */ 
     int sock_fd;        /* Socket FIle descriptor of router */ 
     int is_neighbour;   /* Is This router a direct link */ 
     int next_hop;       /* neighbouring router of self to which packets 
@@ -44,6 +44,12 @@ router_info router_table[ 20 ];
 
 pthread_mutex_t table_lock = PTHREAD_MUTEX_INITIALIZER;
 
+typedef struct MSG {
+    int sender_id;        /* Router sending this message */
+    int destination_id;   /* Destination router this entry refers to */
+    int distance;         /* Sender's distance to that destination */
+} MSG;
+
 #define INF 9999
 
 /* Function for Initializing the Router Table */
@@ -51,7 +57,7 @@ void init_table() {
     int i;
     for (i = 0; i < 20; i++) {
         router_table[i].port_number = 0;
-        router_table[i].cost = INF;
+        router_table[i].distance = INF;
         router_table[i].sock_fd = -1;
         router_table[i].is_neighbour = 0;
         router_table[i].next_hop = -1;
@@ -61,7 +67,7 @@ void print_router_table()
 {
     int i;
     printf("\n============== ROUTER TABLE ================\n");
-    printf("Port\tCost\tSocketFD\tis_Neighbour\tNextHop\n");
+    printf("Port\tdistance\tSocketFD\tis_Neighbour\tNextHop\n");
 
     for (i = 0; i < 20; i++) {
         /* Skip empty entries */
@@ -70,7 +76,7 @@ void print_router_table()
 
         printf("%d\t%d\t%d\t\t\t%s\t\t",
             router_table[i].port_number,
-            router_table[i].cost,
+            router_table[i].distance,
             router_table[i].sock_fd,
             router_table[i].is_neighbour ? "true" : "false");
 
@@ -99,14 +105,14 @@ void *print_router_table_thread()
     pthread_exit(NULL);
 }
 
-void add_to_router_table(int port_number, int cost, int is_neighbour) {
+void add_to_router_table(int port_number, int distance, int is_neighbour) {
     int i, added;
     pthread_mutex_lock(&table_lock);
     added = 0;
     for (i = 0; i < 20; i++) {
         if (router_table[i].port_number == 0) { /* empty slot */
             router_table[i].port_number = port_number;
-            router_table[i].cost = cost;
+            router_table[i].distance = distance;
             router_table[i].is_neighbour = is_neighbour;
             added = 1;
             break;
@@ -249,24 +255,105 @@ void *connect_to_neighbours(void *arg)
 /* Send Info to neighbours */
 void *send_to_neighbours()
 {
-    printf("Send to neighbours Active");
-        pthread_exit(NULL);
+    struct MSG msg;
+    int i, j;
+    int bytes_sent;
+
+    while (1)
+    {   
+        /* send msg to only neighbours */
+        for (i = 0; i < 20; i++) {
+            /* Skip Non neighbour entries */
+            if (router_table[i].is_neighbour == 0)
+            continue;
+            
+            
+            for (j = 0; j < 20; j++) {
+                /* Skip empty entries */
+                if (router_table[j].port_number == 0)
+                continue;
+                
+                /* Construct msg */
+                msg.sender_id = self_port_number;
+                msg.destination_id = router_table[j].port_number;
+                msg.distance = router_table[j].distance;   
+                
+                /* Send message to router */
+                bytes_sent = send(router_table[i].sock_fd,
+                                  &msg,
+                                  sizeof(msg),
+                                  0);
+
+                if (bytes_sent < 0) {
+                    perror("send failed");
+                }
+            }
+            
+        }
+        sleep(5);
+    }
+        
+    pthread_exit(NULL);
 }
 
+/*
+ * Prints a single Distance Vector entry
+ */
+void print_msg(struct MSG *msg)
+{
+    if (msg == NULL) {
+        printf("msg is NULL\n");
+        return;
+    }
+
+    printf("----- Distance Vector Entry -----\n");
+    printf("Sender ID      : %d\n", msg->sender_id);
+    printf("Destination ID : %d\n", msg->destination_id);
+    printf("Cost           : %d\n", msg->distance);
+    printf("----------------------------------\n");
+}
 
 /* Recieve Info from neighbours */
 void *recieve_from_neighbours()
 {
-    printf("Recieve from Neighbours Active");
+    struct MSG msg;
+    int i;
+    int bytes_received;
+
+    while (1)
+    {   
+        /* send msg to only neighbours */
+        for (i = 0; i < 20; i++) {
+            /* Skip Non neighbour entries */
+            if (router_table[i].is_neighbour == 0)
+            continue;
+            
+            bytes_received = recv(router_table[i].sock_fd,
+                                  &msg,
+                                  sizeof(msg),
+                                  MSG_DONTWAIT);
+
+            if (bytes_received > 0) {
+                print_msg(&msg);
+            }
+            else if (bytes_received == 0) {
+                printf("Neighbour disconnected\n");
+            }
+            else {
+                perror("recv failed");
+            }
+        }
+        sleep(5);
+    }
         pthread_exit(NULL);
 }
 /**/
 int main(int argc, char *arg[]){
 
-    int i, router_port, router_cost, *arg_port;
+    int i, router_port, router_distance, *arg_port;
     /* Check Command line arguments validity */
     if ((argc % 2) != 0 ) {
-        printf("Usage: ./d_vec <self_port_number> [ <port number> <cost> ... ] \n");
+        printf("Usage: ./d_vec <self_port_number> [ <port number> <distance> ... ] \n");
         exit(-1);
     }
 
@@ -297,8 +384,8 @@ int main(int argc, char *arg[]){
     while (i < argc) {
         /* Use atoi() to turn CLI argument to integers */
         router_port = atoi(arg[i]);
-        router_cost = atoi(arg[i+1]);
-        add_to_router_table(router_port, router_cost, 1);
+        router_distance = atoi(arg[i+1]);
+        add_to_router_table(router_port, router_distance, 1);
         
         /*  
         Set up a TCP socket and connect to any router that their
