@@ -22,6 +22,8 @@ pthread_t accept_neighbours_thread; /* Thread that accepts incoming neigbours */
 pthread_t bind_listen_thread;       /* Thread that binds and listens to incoming neigbours */ 
 pthread_t connect_thread;           /* Thread that connect to incoming neigbours */ 
 pthread_t print_thread;             /* Thread that print router table values */ 
+pthread_t sender_thread;            /* Thread that send info to neigbours */ 
+pthread_t receiver_thread;          /* Thread that receives info from neighbour */ 
 
 
 /*
@@ -31,8 +33,6 @@ pthread_t print_thread;             /* Thread that print router table values */
 typedef struct {
     int port_number;    /* Port Number of Router */ 
     int	cost;           /* cost to reach neighbour said router */ 
-    int distance;       /* current estimate for the length (i.e., total path weight) 
-                        of a shortest path from router self to destination port_number */ 
     int sock_fd;        /* Socket FIle descriptor of router */ 
     int is_neighbour;   /* Is This router a direct link */ 
     int next_hop;       /* neighbouring router of self to which packets 
@@ -52,7 +52,6 @@ void init_table() {
     for (i = 0; i < 20; i++) {
         router_table[i].port_number = 0;
         router_table[i].cost = INF;
-        router_table[i].distance = INF;
         router_table[i].sock_fd = -1;
         router_table[i].is_neighbour = 0;
         router_table[i].next_hop = -1;
@@ -62,17 +61,16 @@ void print_router_table()
 {
     int i;
     printf("\n============== ROUTER TABLE ================\n");
-    printf("Port\tCost\tDistance\tSocketFD\tis_Neighbour\tNextHop\n");
+    printf("Port\tCost\tSocketFD\tis_Neighbour\tNextHop\n");
 
     for (i = 0; i < 20; i++) {
         /* Skip empty entries */
         if (router_table[i].port_number == 0)
             continue;
 
-        printf("%d\t%d\t%d\t\t%d\t\t%s\t\t",
+        printf("%d\t%d\t%d\t\t\t%s\t\t",
             router_table[i].port_number,
             router_table[i].cost,
-            router_table[i].distance,
             router_table[i].sock_fd,
             router_table[i].is_neighbour ? "true" : "false");
 
@@ -101,7 +99,7 @@ void *print_router_table_thread()
     pthread_exit(NULL);
 }
 
-void add_to_router_table(int port_number, int cost, int distance, int is_neighbour) {
+void add_to_router_table(int port_number, int cost, int is_neighbour) {
     int i, added;
     pthread_mutex_lock(&table_lock);
     added = 0;
@@ -109,7 +107,6 @@ void add_to_router_table(int port_number, int cost, int distance, int is_neighbo
         if (router_table[i].port_number == 0) { /* empty slot */
             router_table[i].port_number = port_number;
             router_table[i].cost = cost;
-            router_table[i].distance = distance;
             router_table[i].is_neighbour = is_neighbour;
             added = 1;
             break;
@@ -159,8 +156,6 @@ void *accept_neighbours()
     pthread_exit(NULL);
 }
 
-
-
 /* Bind and Listen to neighbour routers */
 void *bind_listen_to_neighbours()
 {
@@ -195,7 +190,6 @@ void *bind_listen_to_neighbours()
     pthread_detach(accept_neighbours_thread);
     pthread_exit(NULL);
 }
-
 
 /* Connect to neighbour routers */
 void *connect_to_neighbours(void *arg)
@@ -251,6 +245,21 @@ void *connect_to_neighbours(void *arg)
     pthread_exit(NULL);
 }
 
+
+/* Send Info to neighbours */
+void *send_to_neighbours()
+{
+    printf("Send to neighbours Active");
+        pthread_exit(NULL);
+}
+
+
+/* Recieve Info from neighbours */
+void *recieve_from_neighbours()
+{
+    printf("Recieve from Neighbours Active");
+        pthread_exit(NULL);
+}
 /**/
 int main(int argc, char *arg[]){
 
@@ -289,7 +298,7 @@ int main(int argc, char *arg[]){
         /* Use atoi() to turn CLI argument to integers */
         router_port = atoi(arg[i]);
         router_cost = atoi(arg[i+1]);
-        add_to_router_table(router_port, router_cost, router_cost, 1);
+        add_to_router_table(router_port, router_cost, 1);
         
         /*  
         Set up a TCP socket and connect to any router that their
@@ -320,6 +329,18 @@ int main(int argc, char *arg[]){
         return 1;
     }
     pthread_detach(print_thread);
+
+    if (pthread_create(&sender_thread, NULL, send_to_neighbours, NULL) != 0) {
+        perror("pthread_create failed");
+        return 1;
+    }
+    pthread_detach(sender_thread);
+
+    if (pthread_create(&receiver_thread, NULL, recieve_from_neighbours, NULL) != 0) {
+        perror("pthread_create failed");
+        return 1;
+    }
+    pthread_detach(receiver_thread);
 
     
     /* main can now do other work or sleep */
