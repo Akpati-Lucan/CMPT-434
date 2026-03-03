@@ -1,0 +1,171 @@
+# Distance Vector Network Simulator – Design Document
+
+Author: Lucan Akpati
+NSID: jbs671
+Student Number: 11331253
+
+============================
+
+1. Overview
+
+This project implements a Distance Vector (DV) routing protocol simulator using TCP sockets in C. Each router process maintains a routing table of all known routers in the network, exchanges updates with neighbours, and dynamically updates its routing table according to the distance vector algorithm.
+
+The simulator supports:
+
+* Multi-threaded sending and receiving of routing updates.
+* Dynamic neighbour connection handling.
+* Periodic router table printing.
+* Poisoned Reverse to prevent routing loops.
+
+============================
+
+2. Key Data Structures
+
+2.1 Router Table
+
+typedef struct {
+int port_number;       /* Port Number of Router */
+int distance;          /* Distance to reach router */
+int sock_fd;           /* TCP socket descriptor for this router */
+bool is_neighbour;     /* True if directly connected, false otherwise */
+int next_hop;          /* Next hop router to reach this destination */
+} router_info;
+
+router_info router_table[20];   /* Maximum 20 routers supported */
+
+2.2 Distance Vector Message
+
+typedef struct MSG {
+int sender_id;        /* Router sending this message */
+int destination_id;   /* Destination router for this entry */
+int distance;         /* Sender's distance to destination */
+} MSG;
+
+============================
+
+3. Program Flow
+
+4. Initialization
+
+   * Parse command-line arguments for self port and neighbour port/cost pairs.
+   * Initialize router table via init_table().
+   * Populate initial neighbour entries.
+
+5. Socket Setup
+
+   * bind_listen_to_neighbours() binds a listening socket to self_port_number.
+   * Starts accept_neighbours_thread to accept incoming TCP connections from neighbours.
+
+6. Neighbour Connections
+
+   * For neighbours with port > self port, create connect_to_neighbours thread.
+   * Each thread repeatedly attempts TCP connection until successful.
+   * Sends own port number after connecting.
+   * Updates router_table[i].sock_fd for each connected neighbour.
+
+7. Distance Vector Updates
+
+   * send_to_neighbours periodically sends routing table entries to neighbours every 5 seconds.
+   * Implements Poisoned Reverse: if neighbour is next hop for a destination, advertise INF.
+
+8. Receiving Updates
+
+   * recieve_from_neighbours non-blockingly receives messages (MSG) from each neighbour.
+   * Updates routing table:
+
+     * Adds new routers if unknown.
+     * Updates distance and next hop if a better route is found.
+
+9. Periodic Table Printing
+
+   * print_router_table_thread prints router table every 2 seconds.
+
+10. Concurrency
+
+    * Multiple threads handle different responsibilities:
+
+      * Accept incoming connections (accept_neighbours_thread).
+      * Connect to neighbours (connect_thread per neighbour).
+      * Send updates (sender_thread).
+      * Receive updates (receiver_thread).
+      * Print router table (print_thread).
+
+11. Main Thread
+
+    * After starting all threads, main() pauses indefinitely.
+    * Cleans up sockets on termination.
+
+============================
+
+4. Function Descriptions
+
+| Function                                              | Purpose                                                                                        |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| init_table()                                          | Initializes all router table entries with default values (INF, -1, false).                     |
+| print_router_table()                                  | Prints a formatted view of the current routing table (Port, Distance, IsNeighbour, NextHop).   |
+| print_router_table_thread()                           | Thread function that locks the table and prints it every 2 seconds.                            |
+| find_router_index(int port_number)                    | Returns index of router in table by port, or -1 if not found.                                  |
+| add_to_router_table(int port, int dist, int next_hop) | Adds a new router entry to the table.                                                          |
+| update_router_table(int port, int dist, int next_hop) | Updates an existing router's distance and next hop.                                            |
+| accept_neighbours()                                   | Thread that continuously accepts incoming TCP connections from neighbours and updates sock_fd. |
+| bind_listen_to_neighbours()                           | Thread that binds the server socket and starts accept_neighbours() thread.                     |
+| connect_to_neighbours(void *arg)                      | Thread that connects to a neighbour router, sends self port, and updates sock_fd.              |
+| send_to_neighbours()                                  | Periodically sends routing table entries to all neighbours, applying Poisoned Reverse.         |
+| recieve_from_neighbours()                             | Non-blocking reception of routing updates; updates routing table using Distance Vector logic.  |
+| print_msg(MSG *msg)                                   | Utility function to print a distance vector entry received from a neighbour.                   |
+
+============================
+
+5. Concurrency & Synchronization
+
+* Mutex (table_lock) protects the router table from concurrent access.
+* All threads that read or write the table lock and unlock the mutex appropriately.
+* Threads are detached to allow independent operation.
+
+============================
+
+6. Networking Details
+
+* TCP sockets are used for reliable communication.
+* Each router listens on its own self_port_number.
+* Only routers with port_number > self_port_number initiate outgoing connections to avoid duplicate connections.
+* Neighbours are identified by their port numbers and is_neighbour flag.
+
+============================
+
+7. Distance Vector Algorithm Notes
+
+* Each router periodically sends its distance vector to neighbours.
+* Upon receiving a distance vector:
+
+  * Computes new cost: new_cost = msg.distance + distance_to_sender.
+  * Adds new entries if unknown.
+  * Updates distance and next hop if new_cost < current_distance.
+* Implements Poisoned Reverse to prevent loops.
+
+============================
+
+8. Command-Line Usage
+
+./d_vec <self_port_number> [<neighbour_port> <distance> ...]
+
+Example:
+
+./d_vec 30002 30001 2 30003 3 30004 2
+
+* Starts a router on port 30002.
+* Connects to neighbours:
+
+  * 30001 with cost 2
+  * 30003 with cost 3
+  * 30004 with cost 2
+
+============================
+
+9. Assumptions & Limitations
+
+* Maximum of 20 routers.
+* Runs on localhost (127.0.0.1).
+* Ports must be in the range 30000–40000.
+* Messages are sent periodically every 5 seconds.
+* Simple non-blocking recv() is used; dropped packets are ignored.
