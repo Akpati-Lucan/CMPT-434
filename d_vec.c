@@ -135,7 +135,7 @@ void *print_router_table_thread()
         pthread_mutex_lock(&table_lock);
         print_router_table();
         pthread_mutex_unlock(&table_lock);
-        sleep(5);
+        sleep(2);
     }
     pthread_exit(NULL);
 }
