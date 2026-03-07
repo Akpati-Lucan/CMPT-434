@@ -14,7 +14,9 @@ MSG {
     int source_port
     char[6] dest_name
     int dest_port
-    char[1024] msg 
+    char[1024] msg
+    int vote_for // Only during elections if 1; vote for destination
+                    else if 0 vote for myself
 }
 
 server {
@@ -27,6 +29,7 @@ table_of_servers[20] // A table that hold all the information on the servers in 
 
 /* An array of strings that will hold the users log */
 char log[1024][100];
+int log_append_tracker[1024]
 ####################################################################################
 
 Label parameters - The label instructs which ever process recieves about what the message is for
@@ -34,12 +37,13 @@ Label parameters - The label instructs which ever process recieves about what th
 
 #define APPEND 0
 #define APPEND_ACK 1
-#define COMMIT 2
-#define HEARTBEAT 3
-#define HEARTBEAT_ACK 4
-#define VOTE 5
-#define VOTE_FOR 6
-#define NEW_LEADER 7
+#define REJECT 2
+#define COMMIT 3
+#define HEARTBEAT 4
+#define HEARTBEAT_ACK 5
+#define VOTE 6
+#define VOTE_FOR 7
+#define NEW_LEADER 8
 
 
 ####################################################################################
@@ -58,12 +62,15 @@ Global Variables
 table_of_servers[20] // A table that hold all the information on the servers in the network (including proxy)
 char[16] proxy_hostname 
 int proxy_port 
+LIST *outgoing_messages ; // list of messages
+LIST *incoming_messages ; // list of messages
 int number_of_votes = 0
 int number_of_commits = 0
 int heartbeat_timeout // A random function in the main program will load this value
 int election_timeout
 int heartbeat_ack = 0
 int is_leader
+int seq_number_of_log = 0; // Leader determines sequence number
 thread heartbeat_thread
 thread election_thread
 thread keyboard_thread
@@ -75,24 +82,25 @@ thread commit_and_append
 void *heartbeat_thread() {
 
     while (1) {
-    Send MSG with heartbeat label to proxy for the leader.
-    set the global heartbeat_ack flag to 0
-    sleep for timeout time.
+        construct a MSG with hearbeat label and add to the list of outgoing_messages queue
+        set the global heartbeat_ack flag to 0
+        sleep for timeout time.
 
-    if heartbeat_ack == 1
-        if response is recieve sleep for some time
-    else call election thread
-        break - close heartbeat thread
+        if heartbeat_ack == 1
+            if response is recieve sleep for some time
+        else call election thread
+            break - close heartbeat thread
     }
 }
 
 
 void *election_thread() {
-    Send A MSG with Vote label to all known servers.
+
+    construct A MSG with Vote label for all known servers and enqueue to the outgoing_messages.
     count all known servers.
     vote for yourself // add 1 to number of votes
     sleep for election_timeout 
-    check number of votes // number will be incremented by reciever program
+    check number of votes // number will be incremented by main server thread
 
     if number of votes >= N / 2 
         then change yourself to leader
@@ -105,14 +113,97 @@ void *election_thread() {
 
 ####################################################################################
 
+void *append_handler_thread(int arg seq_number) {
+    add 1 to number of appends
+    sleep for append_timeout
+    check number of appends
+
+    if number_of_appennds >= N / 2
+        COMMIT to log that is 
+        Construct a Commit MSG with sequence number seq_number_of_log
+        for all known servers and enqueue to outgoing_messages
+        increment seq_number_of_log
+    else
+        Reject to Append that is 
+        Construct a reject MSG with sequence number seq_number_of_log
+        for all known servers and enqueu to outgoing_messages
+        leave seq_number_of_log
+}
+
+
 void *keyboard_thread() {
-    this thread constantly collects input from the user and 
-    sends it to the leader for appending and commiting
-    or if is_leader == 1
+    this thread constantly collects input from the user
+    
+    if is_leader == 1
         if the current process is the leader thread
-        it sends to all known servers for appending
-        set number of commits to 0
-        add 1 to number of commits
+        it constructs a MSG for all known servers with label appending and enqueue outgoing_messages
+        start append_handler_thread(seq_number_of_log)
+    else 
+        construct a MSG to the leader with label appending and enqueue outgoing_messages
 } 
 
 
+void *sender_thread() {
+
+    while (1) {
+        Dequeue the first message in the outgoing_messages queue and sends it to proxy server
+    }
+}
+
+void *reciever_thread() {
+
+    while (1) {
+        recieve Messages from socket and enqueue it to the list of incoming_messages messages 
+    }
+}
+
+
+
+####################################################################################
+
+void *main_server() {
+
+    while (1) {
+        grab MSG from incoming_messages
+        switch (msg.label) {
+
+            case: APPEND {
+                Add msg.msg to the log 
+                increment log_append_tracker[seq_number_of_log]
+                construct a MSG with label APPEND_ACK and enqueue
+                to outgoing messages
+            }
+            case: APPEND_ACK { // Only if Server is a leader
+                Add 1 to the log_append_tracker for the seq_number of the message
+            }
+            case: REJECT { // For follower server
+                clear log position for sequence number in MSG
+                make sure seq_number_of_log is at correct position
+            }
+            case: COMMIT { // for follower sever
+                Incremenr the seq_number_of_log
+            }
+            case: HEARTBEAT { // for leader server Only
+                Construct A heartbeat_ack Message and enqueue to 
+                outgoing_messages
+            }
+            case: HEARTBEAT_ACK { for follower server only
+                set global heartbeat_ack to 1
+            }
+            case: VOTE {
+                check if seq_number of sender of MSG is >= than ours if yes 
+                vote for sender
+                else don't vote
+                Create a VOTE_FOR MSG and send to outgoing_messages
+            }
+            case: VOTE_FOR {
+                if MSG.vote == 1 
+                add 1 to number_of_votes
+            }
+            case: NEW_LEADER {
+                Set the flag in the sever table of the new leader to 1
+                and the flag of the old leader to zero
+            }
+        }
+    }
+}
