@@ -21,14 +21,21 @@ The tasks performed by the follower
 - Caller of election receives votes from Followers
 - Print Their Own Log to Stdin
 
-# Cocurrent Actions
-## Heartbeat
-- Followers send Heartbeat to Leader
-- Leader sends ACK
-- If timeout occurs, send election signal to other followers
-- (Voting Rules)
+# Protocols
+## Heartbeat Protocol
+The Heartbeat Protocol ensures that followers know the leader is still active and prevents unnecessary leader elections.
+### Participants
+- Leader
+- Follower
+### Messages
+- 
+- The leader periodically sends heartbeat messages to all followers.
+- Followers reset their heartbeat timeout timer when receiving a heartbeat.
+- If a follower does not receive a heartbeat within a timeout period, it assumes the leader has failed.
+- 
 - Winner of Election Changes sate to Leader
 - New Leader stoers general Log
+  
 ## Election
 
 ## Log Update
@@ -36,4 +43,6 @@ The tasks performed by the follower
 - Sends Update Signal to Leader
 - Leader Acks and Sends "Commit" Signal to Followers
 - Leader Sends Updated Log to all followers
+
+## Follower Safety
   
