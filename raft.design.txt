@@ -175,7 +175,9 @@ void *main_server() {
         switch (msg.label) {
 
             case: NEW_LOG_VALUE { // For Leader Server 
-                
+                if the current process is the leader thread
+                it constructs a MSG for all known servers with label appending and enqueue outgoing_messages
+                start append_handler_thread(seq_number_of_log)
             }
 
             case: APPEND {
