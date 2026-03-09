@@ -30,21 +30,27 @@ table_of_servers[20] // A table that hold all the information on the servers in 
 /* An array of strings that will hold the users log */
 char log[1024][100];
 int log_append_tracker[1024]
+
 ####################################################################################
 
 Label parameters - The label instructs which ever process recieves about what the message is for
 
-
-#define APPEND 0
-#define APPEND_ACK 1
-#define REJECT 2
-#define COMMIT 3
-#define HEARTBEAT 4
-#define HEARTBEAT_ACK 5
-#define VOTE 6
-#define VOTE_FOR 7
-#define NEW_LEADER 8
-
+#define NEW_LOG_VALUE 0
+#define APPEND 1
+#define APPEND_ACK 2
+#define REJECT 3
+#define COMMIT 4
+#define HEARTBEAT 5
+#define HEARTBEAT_ACK 6
+#define VOTE 7
+#define VOTE_FOR 8
+#define NEW_LEADER 9
+#define UPDATE_CHECK 10
+#define UPDATE_SIGNAL 11
+#define UPDATE 12
+#define UPDATE_ACK 13
+#define ADD_SERVER 14
+#define NEW_SERVER 15
 
 ####################################################################################
 
@@ -76,6 +82,7 @@ thread election_thread
 thread keyboard_thread
 thread reciever_thread
 thread commit_and_append
+thread sender_thread
 
 ####################################################################################
 
@@ -139,7 +146,7 @@ void *keyboard_thread() {
         it constructs a MSG for all known servers with label appending and enqueue outgoing_messages
         start append_handler_thread(seq_number_of_log)
     else 
-        construct a MSG to the leader with label appending and enqueue outgoing_messages
+        construct a MSG to the leader with label NEW_LOG_VALUE and enqueue outgoing_messages
 } 
 
 
@@ -167,6 +174,10 @@ void *main_server() {
         grab MSG from incoming_messages
         switch (msg.label) {
 
+            case: NEW_LOG_VALUE { // For Leader Server 
+                
+            }
+
             case: APPEND {
                 Add msg.msg to the log 
                 increment log_append_tracker[seq_number_of_log]
@@ -180,8 +191,10 @@ void *main_server() {
                 clear log position for sequence number in MSG
                 make sure seq_number_of_log is at correct position
             }
-            case: COMMIT { // for follower sever
-                Incremenr the seq_number_of_log
+            case: COMMIT { // for follower server
+                if the seq_number_of_log of personal log is less than seq number of commit MSG
+                Create a reject message and add to outgoing queue
+                Increment the seq_number_of_log
             }
             case: HEARTBEAT { // for leader server Only
                 Construct A heartbeat_ack Message and enqueue to 
@@ -204,6 +217,52 @@ void *main_server() {
                 Set the flag in the sever table of the new leader to 1
                 and the flag of the old leader to zero
             }
+            case: UPDATE_CHECK { // for leader server
+                Send the current seq number of the keadders log
+                Enqueue to outgong messages
+            }
+            case: UPDATE_SIGNAL { // For follower server
+                Check your current seq_number_of_log and compare to the seq_number in the log
+                if the seq numbers are the same fine
+                else 
+                send and update MSG containing your seq number
+            }
+            case: UPDATE { // For Leader Server 
+                Send a UPDATE_ACK MSG to the specified follower server containing the log vaulue of the 
+                seq number in the MSG
+            }
+            case: UPDATE_ACK { // For Follower Server
+                Update your Log with the log value in the message from the leader 
+                increment your seq_number_of_log
+                Construct a UPDATE_CHECK MSG and enqueue to outgoing messages
+            }
+            case: ADD_SERVER { // For all servers
+            // From Proxy Server
+                ADD source_name and source_port to list of servers
+                is-leader is by default zero
+            }
         }
     }
+}
+
+
+
+####################################################################################
+
+int main() {
+
+    Set up UDP SOCKET
+    
+    Connect to proxy_server
+
+    start sender_thread
+
+    start reciever_thread
+
+    start main thread
+
+    start heartbeat_thread
+
+    start keyboard_thread
+
 }
