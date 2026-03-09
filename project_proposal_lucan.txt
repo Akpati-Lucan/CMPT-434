@@ -1,0 +1,193 @@
+Project Proposal
+Distributed Log Replication System using Raft and a Proxy Router
+
+Authors:
+Lucan Akpati – NSID: jbs671 – Student Number: 11331253
+Samuel Olukuewu – NSID: nds091 – Student Number: 11323380
+
+---
+
+1. Project Overview
+
+This project implements a simplified distributed consensus and log replication system inspired by the Raft protocol. The system consists of multiple server nodes and a proxy server that handles message routing between them. Each server maintains a replicated log and participates in leader election, heartbeat monitoring, and log replication to ensure consistency across the distributed system.
+
+The primary objective of the project is to demonstrate how distributed nodes can coordinate with one another to maintain a consistent log of events even in the presence of failures. The proxy server acts as a centralized communication relay that forwards messages between servers.
+
+The implementation will be written in Python and will use UDP sockets for communication and multi-threading for concurrent tasks.
+
+---
+
+2. System Architecture
+
+The system will consist of two main components:
+
+1. Server Nodes
+2. Proxy Server
+
+The server nodes perform the main logic of the distributed system. They handle leader election, heartbeat monitoring, log replication, and message processing. One server acts as the leader at any given time while the others operate as followers.
+
+The proxy server acts as a message router. Instead of servers communicating directly with each other, they send all messages to the proxy. The proxy then forwards those messages to the appropriate destination server.
+
+This design simplifies networking logic and allows centralized message routing.
+
+---
+
+3. Implementation Plan
+
+The implementation will be completed in several stages to ensure that the system works correctly and can be tested incrementally.
+
+---
+
+Stage 1: Data Structures and Message Format
+
+The first stage will define the core data structures used by the system. These include the message structure, server information structure, and global data containers.
+
+The message structure will store all information required for communication between servers. This includes the message type, source server, destination server, log sequence number, and message contents.
+
+The server structure will store information about each server in the network, including hostname, port number, and leader status.
+
+A table of servers will be maintained to track all nodes in the distributed system.
+
+---
+
+Stage 2: Network Communication
+
+The second stage will implement the network communication layer using UDP sockets.
+
+Each server and proxy will open a UDP socket and listen for incoming messages. Messages will be serialized before transmission and deserialized upon receipt.
+
+Two main threads will manage communication:
+
+Receiver Thread
+This thread listens for incoming messages from the network and places them into a queue for processing.
+
+Sender Thread
+This thread takes messages from an outgoing queue and sends them through the socket to the appropriate destination.
+
+This design separates message handling from networking operations.
+
+---
+
+Stage 3: Proxy Message Routing
+
+The proxy server will act as a communication hub. Its main responsibility is to receive messages from servers and forward them to the correct destination.
+
+If a new server joins the system, the proxy will add the server to its server table and notify all other servers of the new member.
+
+For all other message types, the proxy simply forwards the message without modification.
+
+---
+
+Stage 4: Leader Election
+
+Leader election ensures that one server coordinates the system at any given time.
+
+If a server does not receive heartbeat messages from the leader within a certain timeout period, it starts an election. The server sends vote requests to other servers and waits for responses.
+
+If a server receives votes from the majority of servers, it becomes the new leader and notifies the rest of the cluster.
+
+This mechanism ensures that the system can recover from leader failure.
+
+---
+
+Stage 5: Heartbeat Monitoring
+
+The leader periodically sends heartbeat messages to followers to indicate that it is still active.
+
+If followers stop receiving heartbeat messages, they assume that the leader has failed and begin a new election.
+
+Heartbeat monitoring helps maintain system stability and allows quick detection of failures.
+
+---
+
+Stage 6: Log Replication
+
+When a client or user submits a new log entry, the leader distributes the entry to all follower servers.
+
+Followers acknowledge receipt of the log entry. Once a majority of servers acknowledge the entry, the leader commits the entry and instructs all followers to commit it as well.
+
+This ensures that all servers maintain consistent copies of the log.
+
+---
+
+Stage 7: Server Synchronization
+
+If a follower falls behind the leader’s log sequence, it can request updates from the leader.
+
+The leader will send the missing log entries to synchronize the follower’s log.
+
+This ensures that all nodes eventually reach the same state.
+
+---
+
+4. Multithreading Design
+
+Each server will run several threads simultaneously to handle different tasks.
+
+Receiver Thread
+Handles incoming network messages.
+
+Sender Thread
+Handles outgoing messages.
+
+Heartbeat Thread
+Used by the leader to periodically send heartbeat signals.
+
+Election Thread
+Handles leader election if a heartbeat timeout occurs.
+
+Keyboard Thread
+Allows users to input new log messages.
+
+Main Processing Thread
+Processes incoming messages and performs actions based on their type.
+
+Using separate threads ensures that network communication and system logic can run concurrently without blocking each other.
+
+---
+
+5. Evaluation Tasks
+
+The following tasks will be used to evaluate whether the system works correctly.
+
+Task 1: Basic Communication
+Verify that servers can send and receive messages through the proxy.
+
+Task 2: Server Registration
+Start multiple servers and confirm that the proxy correctly adds them to the server table.
+
+Task 3: Leader Election
+Stop the current leader and confirm that a new leader is elected automatically.
+
+Task 4: Heartbeat Detection
+Ensure that followers detect missing heartbeat signals and initiate elections.
+
+Task 5: Log Replication
+Submit log entries to the leader and verify that they are replicated across all servers.
+
+Task 6: Commit Verification
+Confirm that log entries are only committed after receiving acknowledgments from a majority of servers.
+
+Task 7: Server Synchronization
+Start a server after the system is running and verify that it updates its log to match the leader.
+
+Task 8: Fault Recovery
+Simulate server failures and ensure that the system continues operating correctly.
+
+---
+
+6. Expected Outcome
+
+At the end of the project, the system should demonstrate a working distributed log replication protocol with leader election, message routing, and fault tolerance.
+
+Multiple server nodes will be able to communicate through the proxy server, elect a leader, replicate logs, and maintain a consistent system state.
+
+The project will demonstrate key concepts in distributed systems such as consensus, fault detection, and data replication.
+
+---
+
+7. Conclusion
+
+This project will provide a practical implementation of distributed system coordination using a simplified Raft-style approach. By separating the proxy routing logic from the server logic and using multithreading for concurrent tasks, the system will simulate a real distributed environment.
+
+The staged implementation plan and evaluation tasks ensure that the system can be tested and verified step by step as development progresses.
