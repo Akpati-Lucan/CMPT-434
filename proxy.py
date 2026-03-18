@@ -7,7 +7,8 @@
 # Student Number: 11323380
 
 from queue import Queue
-
+import pickle
+import socket
 
 class Message:
     def __init__(self, label, seq_number, source_name, source_port,
@@ -60,3 +61,64 @@ proxy_port = 0
 
 outgoing_messages = Queue()
 incoming_messages = Queue()
+
+
+def sender_thread():
+
+    while True:
+        msg = outgoing_messages.get()
+
+        serialized = pickle.dumps(msg)
+
+        socket.sendto(serialized, (msg.dest_name, msg.dest_port))
+
+def receiver_thread():
+
+    while True:
+
+        data, addr = socket.recvfrom(2048)
+
+        msg = pickle.loads(data)
+
+        incoming_messages.put(msg)
+
+def main_server():
+
+    while True:
+
+        msg = incoming_messages.get()
+
+        if msg.label == NEW_SERVER:
+
+            new_server = Server(msg.source_name, msg.source_port)
+
+            table_of_servers.append(new_server)
+
+            for server in table_of_servers:
+
+                add_msg = Message(
+                    ADD_SERVER,
+                    0,
+                    msg.source_name,
+                    msg.source_port,
+                    server.hostname,
+                    server.port
+                )
+
+                outgoing_messages.put(add_msg)
+
+        else:
+
+            outgoing_messages.put(msg)
+
+def main():
+
+    parse_command_line_arguments()
+
+    setup_udp_socket()
+
+    socket.bind((proxy_hostname, proxy_port))
+
+    start_thread(sender_thread)
+    start_thread(receiver_thread)
+    start_thread(main_server)
