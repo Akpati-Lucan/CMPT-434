@@ -6,6 +6,7 @@
 # NSID: nds091
 # Student Number: 11323380
 
+from queue import Queue
 
 
 class Message:
@@ -29,9 +30,6 @@ class Server:
 
 table_of_servers = []
 MAX_SERVERS = 20
-log = [""] * 1024
-log_append_tracker = [0] * 1024
-
 
 ####################################################################################
 #Label parameters - The label instructs which ever process recieves about what the message is for
@@ -52,3 +50,13 @@ UPDATE = 12
 UPDATE_ACK = 13
 ADD_SERVER = 14
 NEW_SERVER = 15
+
+
+####################################################################################
+#Global Variables
+
+proxy_hostname = ""
+proxy_port = 0
+
+outgoing_messages = Queue()
+incoming_messages = Queue()
