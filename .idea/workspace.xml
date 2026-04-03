@@ -4,18 +4,30 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="49a1b46d-f5bc-4416-bc47-18ec1e9c933d" name="Changes" comment="" />
+    <list default="true" id="49a1b46d-f5bc-4416-bc47-18ec1e9c933d" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/raft.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/raft_header.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/proxy.py" beforeDir="false" afterPath="$PROJECT_DIR$/proxy.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 2
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 2
+}</component>
   <component name="ProjectId" id="3B83xzq3n8j04rnZBvxeFjr9PJ8" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -24,14 +36,14 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
+    "git-widget-placeholder": "project",
     "last_opened_file_path": "C:/Users/KOFI/Documents/CMPT_434",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "configurable.group.appearance",
+    "settings.editor.selected.configurable": "terminal",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
@@ -51,7 +63,10 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1773857120985</updated>
-      <workItem from="1773857122114" duration="307000" />
+      <workItem from="1773857122114" duration="649000" />
+      <workItem from="1774569815372" duration="2000" />
+      <workItem from="1774631688340" duration="6000" />
+      <workItem from="1775180072474" duration="15839000" />
     </task>
     <servers />
   </component>

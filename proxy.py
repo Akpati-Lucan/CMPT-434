@@ -12,66 +12,25 @@ import socket
 import sys
 import threading
 import time
+import random
+from raft_header import Message, Server, Label
 
 ####################################################################################
-# Global Parameters
+# Global Variables
+
 proxy_hostname = None
 proxy_port = None
 proxy_socket = None
 outgoing_messages = Queue()
 incoming_messages = Queue()
 
-
-class Message:
-    def __init__(self, label, seq_number, source_name, source_port,
-                 dest_name, dest_port, msg="", vote_for=0):
-
-        self.label = label
-        self.seq_number = seq_number
-        self.source_name = source_name
-        self.source_port = source_port
-        self.dest_name = dest_name
-        self.dest_port = dest_port
-        self.msg = msg
-        self.vote_for = vote_for
-
-class Server:
-    def __init__(self, hostname, port, is_leader=False):
-        self.hostname = hostname
-        self.port = port
-        self.is_leader = is_leader
-
 table_of_servers = []
 MAX_SERVERS = 20
-
-####################################################################################
-#Label parameters - The label instructs which ever process recieves about what the message is for
-
-NEW_LOG_VALUE = 0
-APPEND = 1
-APPEND_ACK = 2
-REJECT = 3
-COMMIT = 4
-HEARTBEAT = 5
-HEARTBEAT_ACK = 6
-VOTE = 7
-VOTE_FOR = 8
-NEW_LEADER = 9
-UPDATE_CHECK = 10
-UPDATE_SIGNAL = 11
-UPDATE = 12
-UPDATE_ACK = 13
-ADD_SERVER = 14
-NEW_SERVER = 15
-
 
 ####################################################################################
 
 
 def sender_thread():
-    global proxy_socket
-    global outgoing_messages
-    global incoming_messages
 
     while True:
         #msg = outgoing_messages.get()
@@ -100,7 +59,6 @@ def sender_thread():
             serialized = pickle.dumps(msg)
             proxy_socket.sendto(serialized, (msg.dest_name, msg.dest_port))
 
-            print(f"Sent to {msg.dest_name}:{msg.dest_port}")
 
         except Exception as e:
             print("Send error:", e)
@@ -120,8 +78,7 @@ def receiver_thread():
             print("Error decoding message:", e)
             continue
 
-        print(f"Received {msg.msg} from {msg.source_name}:{msg.source_port}")
-        #incoming_messages.put(msg)
+        incoming_messages.put(msg)
 
 def main_server():
 
@@ -129,7 +86,8 @@ def main_server():
 
         msg = incoming_messages.get()
 
-        if msg.label == NEW_SERVER:
+        print(f"Server got {msg.msg} from {msg.source_name}:{msg.source_port}")
+        if msg.label == Label.NEW_SERVER:
 
             new_server = Server(msg.source_name, msg.source_port)
 
@@ -138,7 +96,7 @@ def main_server():
             for server in table_of_servers:
 
                 add_msg = Message(
-                    ADD_SERVER,
+                    Label.ADD_SERVER,
                     0,
                     msg.source_name,
                     msg.source_port,
@@ -182,37 +140,38 @@ def parse_command_line_arguments():
     # Add leader to table
     table_of_servers.append(Server(leader_name, leader_port, is_leader=True))
 
-    # # Remaining args (servers start from index 5)
-    # remaining = args[5:]
-    #
-    # # Must be pairs (hostname, port)
-    # if len(remaining) % 2 != 0:
-    #     print("Error: Server arguments must be in pairs (hostname port)")
-    #     sys.exit(1)
-    #
-    # for i in range(0, len(remaining), 2):
-    #     hostname = remaining[i]
-    #     port = int(remaining[i + 1])
-    #
-    #     if len(table_of_servers) >= MAX_SERVERS:
-    #         print("Error: Maximum number of servers reached")
-    #         break
-    #
-    #     table_of_servers.append(Server(hostname, port))
+    # Remaining args (servers start from index 5)
+    remaining = args[5:]
+
+    # Must be pairs (hostname, port)
+    if len(remaining) % 2 != 0:
+        print("Error: Server arguments must be in pairs (hostname port)")
+        sys.exit(1)
+
+    for i in range(0, len(remaining), 2):
+        hostname = remaining[i]
+        port = int(remaining[i + 1])
+
+        if len(table_of_servers) >= MAX_SERVERS:
+            print("Error: Maximum number of servers reached")
+            break
+
+        table_of_servers.append(Server(hostname, port))
 
 
 def main():
-    print("Starting server...")
     parse_command_line_arguments()
     setup_udp_socket()
 
     # Create threads
     sender = threading.Thread(target=sender_thread, args=())
     receiver = threading.Thread(target=receiver_thread, args=())
+    server = threading.Thread(target=main_server, args=())
 
     # Start threads
     sender.start()
     receiver.start()
+    server.start()
 
 if __name__ == "__main__":
     main()
