@@ -153,7 +153,6 @@ def keyboard_thread():
             outgoing_messages.put(msg)
 
 def sender_thread():
-    print("Sender Thread is starting...")
     while True:
         try:
             msg = outgoing_messages.get()
@@ -163,12 +162,12 @@ def sender_thread():
             print("Sender error:", e)
 
 def receiver_thread():
-    print("Receiver Thread is starting...")
     while True:
         try:
             data, addr = server_socket.recvfrom(2048)
             msg = pickle.loads(data)
             incoming_messages.put(msg)
+            print(f"Server got {msg.msg} from {msg.source_name}:{msg.source_port}")
         except Exception as e:
             print("Sender error:", e)
 
@@ -286,13 +285,10 @@ def main_server():
                 Server(msg.source_name, msg.source_port)
             )
 
-
 def setup_udp_socket():
     global server_socket
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server_socket.bind((server_hostname, server_port))
-
-    print("UDP server is listening...")
 
 def parse_server_list(args, start_index):
 
@@ -310,8 +306,6 @@ def parse_server_list(args, start_index):
             break
 
         table_of_servers.append(Server(hostname, port))
-
-
 
 def parse_command_line_arguments():
     args = sys.argv

@@ -17,7 +17,6 @@ from raft_header import Message, Server, Label
 
 ####################################################################################
 # Global Variables
-
 proxy_hostname = None
 proxy_port = None
 proxy_socket = None
@@ -50,7 +49,6 @@ def print_server_table():
 
 ####################################################################################
 
-
 def sender_thread():
     while True:
         msg = outgoing_messages.get()
@@ -59,7 +57,6 @@ def sender_thread():
             proxy_socket.sendto(serialized, (msg.dest_name, msg.dest_port))
         except Exception as e:
             print("Send error:", e)
-
 
 def receiver_thread():
     while True:
@@ -107,9 +104,6 @@ def setup_udp_socket():
     proxy_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     proxy_socket.bind((proxy_hostname, proxy_port))
 
-    print("UDP server is listening...")
-
-
 def parse_command_line_arguments():
     args = sys.argv
 
@@ -149,7 +143,6 @@ def parse_command_line_arguments():
             break
 
         table_of_servers.append(Server(hostname, port))
-
 
 def main():
     parse_command_line_arguments()

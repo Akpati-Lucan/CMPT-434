@@ -4,11 +4,18 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="49a1b46d-f5bc-4416-bc47-18ec1e9c933d" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/test.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/proxy.py" beforeDir="false" afterPath="$PROJECT_DIR$/proxy.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/raft.py" beforeDir="false" afterPath="$PROJECT_DIR$/raft.py" afterDir="false" />
+    <list default="true" id="49a1b46d-f5bc-4416-bc47-18ec1e9c933d" name="Changes" comment="Got raft to send to proxy server">
+      <change beforePath="$PROJECT_DIR$/FinalProjectProposal.md" beforeDir="false" afterPath="$PROJECT_DIR$/Proposal/FinalProjectProposal.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Makefile" beforeDir="false" afterPath="$PROJECT_DIR$/C/Makefile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Project Proposal.md" beforeDir="false" afterPath="$PROJECT_DIR$/Proposal/Project Proposal.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/list.h" beforeDir="false" afterPath="$PROJECT_DIR$/C/list.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/list_adders.c" beforeDir="false" afterPath="$PROJECT_DIR$/C/list_adders.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/list_movers.c" beforeDir="false" afterPath="$PROJECT_DIR$/C/list_movers.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/list_removers.c" beforeDir="false" afterPath="$PROJECT_DIR$/C/list_removers.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/project_proposal.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Proposal/project_proposal.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/proxy.design.txt" beforeDir="false" afterPath="$PROJECT_DIR$/C/proxy.design.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/raft.c" beforeDir="false" afterPath="$PROJECT_DIR$/C/raft.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/raft.design.txt" beforeDir="false" afterPath="$PROJECT_DIR$/C/raft.design.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -67,7 +74,7 @@
       <workItem from="1774569815372" duration="2000" />
       <workItem from="1774631688340" duration="6000" />
       <workItem from="1775180072474" duration="16037000" />
-      <workItem from="1775259988824" duration="4988000" />
+      <workItem from="1775259988824" duration="5876000" />
     </task>
     <servers />
   </component>
@@ -84,5 +91,9 @@
         </entry>
       </map>
     </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Got raft to send to proxy server" />
+    <option name="LAST_COMMIT_MESSAGE" value="Got raft to send to proxy server" />
   </component>
 </project>
