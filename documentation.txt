@@ -1,0 +1,48 @@
+def keyboard_thread():
+    """
+    Handles user input and dispatches messages to either the leader or follower
+    in a distributed system (Raft-style communication).
+
+    This thread continuously prompts the user for input from the command line
+    and converts the input into network messages that are placed into the
+    outgoing message queue for transmission by the sender thread.
+
+    Behavior:
+    ---------
+    1. Prompts the user for a message using standard input.
+    2. If this node is the leader:
+        - Creates APPEND messages for all servers in the cluster.
+        - Enqueues each message into the outgoing_messages queue.
+        - Spawns an append_handler_thread to process replication acknowledgements.
+        - Blocks until append_handler_thread completes (if implemented with join).
+        - Increments the sequence number after successful append handling.
+    3. If this node is not the leader:
+        - Creates a NEW_LOG_VALUE message.
+        - Sends it to the known leader via the outgoing_messages queue.
+
+    Globals Used:
+    -------------
+    - is_leader: determines if current node is leader or follower
+    - seq_number_of_log: log sequence number for replication ordering
+    - table_of_servers: list of known servers in the cluster
+    - server_hostname, server_port: identity of current node
+    - leader_hostname, leader_port: leader node address
+    - outgoing_messages: thread-safe queue used by sender_thread
+
+    Concurrency:
+    ------------
+    - Runs as a dedicated thread.
+    - Interacts with sender_thread via outgoing_messages queue.
+    - May spawn append_handler_thread for log replication coordination.
+    - Uses blocking input(), so it runs continuously and requires user interaction.
+
+    Notes:
+    ------
+    - This function is designed for a multi-threaded distributed system.
+    - Blocking behavior (input + join) will pause only this thread, not others.
+    - Proper synchronization is required when updating seq_number_of_log.
+
+    Returns:
+    --------
+    None
+    """

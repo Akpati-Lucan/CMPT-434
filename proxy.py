@@ -74,7 +74,7 @@ def main_server():
 
         msg = incoming_messages.get()
 
-        print(f"Server got {msg.msg} from {msg.source_name}:{msg.source_port}")
+        print(f"Server got {msg.msg} with label {msg.label.name} from {msg.source_name}:{msg.source_port}")
 
         if msg.label == Label.NEW_SERVER:
 

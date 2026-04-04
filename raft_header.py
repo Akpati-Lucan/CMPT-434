@@ -1,4 +1,6 @@
 
+from enum import IntEnum
+
 ####################################################################################
 
 class Message:
@@ -48,7 +50,7 @@ class Server:
 
 ####################################################################################
 
-class Label:
+class Label(IntEnum):
     NEW_LOG_VALUE = 0
     APPEND = 1
     APPEND_ACK = 2
@@ -65,7 +67,6 @@ class Label:
     UPDATE_ACK = 13
     ADD_SERVER = 14
     NEW_SERVER = 15
-
 
 
 

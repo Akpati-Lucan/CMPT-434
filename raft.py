@@ -35,7 +35,7 @@ number_of_commits = 0
 
 heartbeat_timeout = random.randint(0, 5)
 election_timeout = random.randint(0, 5)
-append_timeout = random.randint(0, 5)
+append_timeout = random.uniform(0.005, 0.02)
 
 heartbeat_ack = False
 is_leader = False
@@ -73,6 +73,29 @@ def print_server_table():
         print(f"{server.hostname:<20} {server.port:<10} {leader_status:<10}")
 
     print("-" * 45)
+
+def print_log():
+    """
+    Prints the current state of the log in order,
+    only showing entries that have been appended.
+
+    Uses log_append_tracker to determine valid log positions.
+    """
+
+    print("\n========= LOG STATE =========")
+
+    if is_leader:
+        for i in range(len(log)):
+            if log[i] != "":
+                print(f"Index {i}: message:{log[i]}   appends:{log_append_tracker[i]}")
+        print("============================\n")
+
+    else:
+        for i in range(len(log)):
+            if log[i] != "":
+                print(f"Index {i}: message:{log[i]} ")
+        print("============================\n")
+
 ####################################################################################
 
 
@@ -118,9 +141,10 @@ def election_thread():
 
     number_of_votes = 0
 
-def append_handler_thread(seq_number):
+def append_handler_thread(seq_number, message):
 
     global log_append_tracker
+    global seq_number_of_log
     log_append_tracker[seq_number] += 1
 
     time.sleep(append_timeout)
@@ -130,14 +154,24 @@ def append_handler_thread(seq_number):
         for server in table_of_servers:
             msg = Message(Label.COMMIT, seq_number, server_hostname, server_port, server.hostname, server.port, "", 0)
             outgoing_messages.put(msg)
+
+        # Add msg to the log
+        log[seq_number] = message
+        seq_number_of_log += 1 # Increment seq number of log when message has been commited
+        print_log()
     else:
 
         for server in table_of_servers:
             msg = Message(Label.REJECT, seq_number, server_hostname, server_port, server.hostname, server.port, "", 0)
             outgoing_messages.put(msg)
 
-def keyboard_thread():
+        # Set log_append_tracker for that seq number to zero
+        log_append_tracker[seq_number] = 0
+        print_log()
 
+
+def keyboard_thread():
+    global seq_number_of_log
     while True:
         user_input = input("Enter message to send ")
 
@@ -146,7 +180,9 @@ def keyboard_thread():
                 msg = Message(Label.APPEND, seq_number_of_log, server_hostname, server_port, server.hostname, server.port, user_input, 0)
                 outgoing_messages.put(msg)
 
-            #Thread(target=append_handler_thread, args=(seq_number_of_log,)).start()
+            t = Thread(target=append_handler_thread, args=(seq_number_of_log, user_input))
+            t.start()
+            t.join() # BLOCK here until append_handler_thread finishes
 
         else:
             msg = Message(Label.NEW_LOG_VALUE, 0, server_hostname, server_port, leader_hostname, leader_port, user_input, 0)
@@ -167,7 +203,7 @@ def receiver_thread():
             data, addr = server_socket.recvfrom(2048)
             msg = pickle.loads(data)
             incoming_messages.put(msg)
-            print(f"Server got {msg.msg} from {msg.source_name}:{msg.source_port}")
+            print(f"Server got {msg.msg} with label {msg.label.name} from {msg.source_name}:{msg.source_port}")
         except Exception as e:
             print("Sender error:", e)
 
@@ -187,7 +223,7 @@ def main_server():
                                   server.port, msg.msg, 0)
                     outgoing_messages.put(msg)
 
-                append_handler.start(seq_number_of_log)
+                Thread(target=append_handler_thread, args=(seq_number_of_log, msg.msg)).start()
 
         elif msg.label == Label.APPEND:
 
@@ -205,10 +241,12 @@ def main_server():
         elif msg.label == Label.REJECT:
 
             log[msg.seq_number] = ""
+            print_log()
 
         elif msg.label == Label.COMMIT:
 
-            seq_number_of_log += 1
+            seq_number_of_log = msg.seq_number
+            print_log()
 
         elif msg.label == Label.HEARTBEAT:
             msg = Message(Label.HEARTBEAT_ACK, 0, server_hostname, server_port, leader_hostname,
@@ -336,6 +374,8 @@ def parse_command_line_arguments():
     if int(args[5]) == 1:
         is_leader = True
 
+        leader_hostname = args[3]
+        leader_port = int(args[4])
         print("Leader server is listening...")
         # Remaining args (servers start from index 5)
         remaining = args[6:]
@@ -352,7 +392,7 @@ def parse_command_line_arguments():
         leader_hostname = args[6]
         leader_port = int(args[7])
 
-        table_of_servers.append(Server(leader_hostname, leader_port))
+        table_of_servers.append(Server(leader_hostname, leader_port, True))
 
         # Remaining args (servers start from index 7)
         remaining = args[8:]
@@ -377,21 +417,23 @@ def main():
     keyboard = threading.Thread(target=keyboard_thread, args=())
     sender = threading.Thread(target=sender_thread, args=())
     receiver = threading.Thread(target=receiver_thread, args=())
+    server = threading.Thread(target=main_server, args=())
 
     # Start threads
     sender.start()
     receiver.start()
     keyboard.start()
+    server.start()
 
     #
-    # server = threading.Thread(target=main_server, args=())
+
     # heartbeat = threading.Thread(target=heartbeat_thread, args=())
     #
     # election = Thread(target=election_thread)
     # append_handler = Thread(target=append_handler_thread, args=())
     #
 
-    #server.start()
+
     #heartbeat.start()
 
 
