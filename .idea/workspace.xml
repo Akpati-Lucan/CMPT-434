@@ -5,12 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="49a1b46d-f5bc-4416-bc47-18ec1e9c933d" name="Changes" comment="Got raft to send to proxy server">
-      <change afterPath="$PROJECT_DIR$/documentation.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/proxy.py" beforeDir="false" afterPath="$PROJECT_DIR$/proxy.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/raft.py" beforeDir="false" afterPath="$PROJECT_DIR$/raft.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/raft_header.py" beforeDir="false" afterPath="$PROJECT_DIR$/raft_header.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test.txt" beforeDir="false" afterPath="$PROJECT_DIR$/test.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -75,7 +72,7 @@
       <workItem from="1774569815372" duration="2000" />
       <workItem from="1774631688340" duration="6000" />
       <workItem from="1775180072474" duration="16037000" />
-      <workItem from="1775259988824" duration="12477000" />
+      <workItem from="1775259988824" duration="13819000" />
     </task>
     <servers />
   </component>

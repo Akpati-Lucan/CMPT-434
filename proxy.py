@@ -6,7 +6,7 @@
 # NSID: nds091
 # Student Number: 11323380
 
-from queue import Queue
+from queue import Queue, Empty
 import pickle
 import socket
 import sys
@@ -17,6 +17,9 @@ from raft_header import Message, Server, Label
 
 ####################################################################################
 # Global Variables
+
+keepRunning = True # Global Variable to stop threads
+
 proxy_hostname = None
 proxy_port = None
 proxy_socket = None
@@ -50,31 +53,44 @@ def print_server_table():
 ####################################################################################
 
 def sender_thread():
-    while True:
-        msg = outgoing_messages.get()
+    while keepRunning:
         try:
+            msg = outgoing_messages.get(timeout=0.5)
             serialized = pickle.dumps(msg)
             proxy_socket.sendto(serialized, (msg.dest_name, msg.dest_port))
+        except Empty:
+            continue
         except Exception as e:
             print("Send error:", e)
 
 def receiver_thread():
-    while True:
-        data, addr = proxy_socket.recvfrom(2048)
+    while keepRunning:
         try:
+            data, addr = proxy_socket.recvfrom(2048)
             msg = pickle.loads(data)
+            incoming_messages.put(msg)
+
+        except socket.timeout:
+            continue  # lets loop re-check keepRunning
+
         except Exception as e:
-            print("Error decoding message:", e)
-            continue
-        incoming_messages.put(msg)
+            print("Receiver error:", e)
 
 def main_server():
+    global keepRunning
+    while keepRunning:
 
-    while True:
+        try:
+            msg = incoming_messages.get(timeout=0.5)
 
-        msg = incoming_messages.get()
+        except Empty:
+            continue  # lets loop re-check keepRunning
 
         print(f"Server got {msg.msg} with label {msg.label.name} from {msg.source_name}:{msg.source_port}")
+
+        if msg.msg == "p-exit":
+            keepRunning = False
+            break
 
         if msg.label == Label.NEW_SERVER:
 
@@ -96,13 +112,13 @@ def main_server():
                 outgoing_messages.put(add_msg)
 
         else:
-
             outgoing_messages.put(msg)
 
 def setup_udp_socket():
     global proxy_socket
     proxy_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     proxy_socket.bind((proxy_hostname, proxy_port))
+    proxy_socket.settimeout(0.5)
 
 def parse_command_line_arguments():
     args = sys.argv

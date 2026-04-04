@@ -6,7 +6,7 @@
 # NSID: nds091
 # Student Number: 11323380
 
-from queue import Queue
+from queue import Queue, Empty
 import pickle
 import socket
 import sys
@@ -19,6 +19,8 @@ from raft_header import Message, Server, Label
 
 ####################################################################################
 # Global Variables
+
+keepRunning = True # Global Variable to stop threads
 
 server_hostname = None
 server_port = None
@@ -169,11 +171,16 @@ def append_handler_thread(seq_number, message):
         log_append_tracker[seq_number] = 0
         print_log()
 
-
 def keyboard_thread():
     global seq_number_of_log
-    while True:
+    global keepRunning
+
+    while keepRunning:
         user_input = input("Enter message to send ")
+
+        if user_input == "exit":
+            keepRunning = False
+            break
 
         if is_leader:
             for server in table_of_servers:
@@ -189,21 +196,28 @@ def keyboard_thread():
             outgoing_messages.put(msg)
 
 def sender_thread():
-    while True:
+    while keepRunning:
         try:
-            msg = outgoing_messages.get()
+            msg = outgoing_messages.get(timeout=0.5)
             serialized = pickle.dumps(msg)
             server_socket.sendto(serialized, (proxy_hostname, proxy_port))
+
+        except Empty:
+            continue
+
         except Exception as e:
             print("Sender error:", e)
 
 def receiver_thread():
-    while True:
+    while keepRunning:
         try:
             data, addr = server_socket.recvfrom(2048)
             msg = pickle.loads(data)
             incoming_messages.put(msg)
             print(f"Server got {msg.msg} with label {msg.label.name} from {msg.source_name}:{msg.source_port}")
+        except socket.timeout:
+            continue  # lets loop re-check keepRunning
+
         except Exception as e:
             print("Sender error:", e)
 
@@ -211,9 +225,13 @@ def main_server():
     global seq_number_of_log
     global heartbeat_ack
     global number_of_votes
-    while True:
+    while keepRunning:
 
-        msg = incoming_messages.get()
+        try:
+            msg = incoming_messages.get(timeout=0.5)
+
+        except Empty:
+            continue  # lets loop re-check keepRunning
 
         if msg.label == Label.NEW_LOG_VALUE:
 
@@ -327,6 +345,7 @@ def setup_udp_socket():
     global server_socket
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server_socket.bind((server_hostname, server_port))
+    server_socket.settimeout(0.5)
 
 def parse_server_list(args, start_index):
 
@@ -398,7 +417,6 @@ def parse_command_line_arguments():
         remaining = args[8:]
 
         parse_server_list(remaining, 0)
-
 
 def main():
 
