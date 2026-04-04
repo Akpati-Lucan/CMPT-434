@@ -1,28 +1,5 @@
 
 from enum import IntEnum
-
-####################################################################################
-
-class Message:
-    def __init__(self, label, seq_number, source_name, source_port,
-                 dest_name, dest_port, msg="", vote_for=0):
-
-        self.label = label
-        self.seq_number = seq_number
-        self.source_name = source_name
-        self.source_port = source_port
-        self.dest_name = dest_name
-        self.dest_port = dest_port
-        self.msg = msg
-        self.vote_for = vote_for
-
-class Server:
-    def __init__(self, hostname, port, is_leader=False):
-        self.hostname = hostname
-        self.port = port
-        self.is_leader = is_leader
-
-
 ####################################################################################
 #Label parameters - The label instructs which ever process receives about what the message is for
 ####################################################################################
@@ -42,8 +19,8 @@ class Message:
 
 
 class Server:
-    def __init__(self, hostname, port, is_leader=False):
-        self.hostname = hostname
+    def __init__(self, name, port, is_leader=False):
+        self.name = name
         self.port = port
         self.is_leader = is_leader
 

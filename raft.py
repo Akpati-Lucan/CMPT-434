@@ -22,13 +22,14 @@ from raft_header import Message, Server, Label
 
 keepRunning = True # Global Variable to stop threads
 
-server_hostname = None
-server_port = None
-proxy_hostname = None
+hostname = 'localhost'
+node_name = None
+node_port = None
+proxy_name = None
 proxy_port = None
-leader_hostname = None
+leader_name = None
 leader_port = None
-server_socket = None
+node_socket = None
 outgoing_messages = Queue()
 incoming_messages = Queue()
 
@@ -39,7 +40,7 @@ heartbeat_timeout = random.randint(0, 5)
 election_timeout = random.randint(0, 5)
 append_timeout = random.uniform(0.005, 0.02)
 
-heartbeat_ack = False
+heartbeat_ack = True
 is_leader = False
 seq_number_of_log = 0
 
@@ -55,24 +56,24 @@ append_handler = Thread
 ####################################################################################
 def print_server_table():
     global table_of_servers
-    global server_hostname, server_port
-    global proxy_hostname, proxy_port
-    global leader_hostname, leader_port
+    global node_name, node_port
+    global proxy_name, proxy_port
+    global leader_name, leader_port
 
     # === Node Info ===
     print("\n=== Current Node Info ===")
-    print(f"{'Proxy:':<15} {proxy_hostname}:{proxy_port}")
-    print(f"{'Server:':<15} {server_hostname}:{server_port}")
-    print(f"{'Leader:':<15} {leader_hostname}:{leader_port}")
+    print(f"{'Proxy:':<15} {proxy_name}-{proxy_port}")
+    print(f"{'Current Node:':<15} {node_name}-{node_port}")
+    print(f"{'Leader:':<15} {leader_name}-{leader_port}")
 
     # === Server Table ===
     print("\n=== Server Table ===")
-    print(f"{'Hostname':<20} {'Port':<10} {'Leader':<10}")
+    print(f"{'Name':<20} {'Port':<10} {'Leader':<10}")
     print("-" * 45)
 
     for server in table_of_servers:
         leader_status = "Yes" if server.is_leader else "No"
-        print(f"{server.hostname:<20} {server.port:<10} {leader_status:<10}")
+        print(f"{server.name:<20} {server.port:<10} {leader_status:<10}")
 
     print("-" * 45)
 
@@ -104,18 +105,19 @@ def print_log():
 def heartbeat_thread():
     global heartbeat_ack
     global election
-    while True:
+    while heartbeat_ack:
+        if not is_leader:
+            msg = Message(Label.HEARTBEAT, 0, node_name, node_port, leader_name, leader_port, "", 0)
+            outgoing_messages.put(msg)
 
-        msg = Message(Label.HEARTBEAT, 0, server_hostname, server_port, leader_hostname, leader_port, "", 0)
-        outgoing_messages.put(msg)
+            heartbeat_ack = False
 
-        heartbeat_ack = False
+            time.sleep(heartbeat_timeout)
 
-        time.sleep(heartbeat_timeout)
-
-        if not heartbeat_ack:
-            Thread(target=election_thread).start()
-            break
+            if not heartbeat_ack:
+                print("No heartbeat ack received, starting election...")
+                # Thread(target=election_thread).start()
+                break
 
 def election_thread():
     global number_of_votes
@@ -123,7 +125,7 @@ def election_thread():
     global heartbeat
 
     for server in table_of_servers:
-        msg = Message(Label.VOTE, seq_number_of_log, server_hostname, server_port, server.hostname, server.port, "", 0)
+        msg = Message(Label.VOTE, seq_number_of_log, node_name, node_port, server.name, server.port, "", 0)
         outgoing_messages.put(msg)
 
     number_of_votes += 1
@@ -135,7 +137,7 @@ def election_thread():
         is_leader = True
 
         for server in table_of_servers:
-            msg = Message(Label.NEW_LEADER, 0, server_hostname, server_port, server.hostname, server.port, "", 0)
+            msg = Message(Label.NEW_LEADER, 0, node_name, node_port, server.name, server.port, "", 0)
             outgoing_messages.put(msg)
 
     else:
@@ -154,7 +156,7 @@ def append_handler_thread(seq_number, message):
     if log_append_tracker[seq_number] >= len(table_of_servers) / 2:
 
         for server in table_of_servers:
-            msg = Message(Label.COMMIT, seq_number, server_hostname, server_port, server.hostname, server.port, "", 0)
+            msg = Message(Label.COMMIT, seq_number, node_name, node_port, server.name, server.port, "", 0)
             outgoing_messages.put(msg)
 
         # Add msg to the log
@@ -164,7 +166,7 @@ def append_handler_thread(seq_number, message):
     else:
 
         for server in table_of_servers:
-            msg = Message(Label.REJECT, seq_number, server_hostname, server_port, server.hostname, server.port, "", 0)
+            msg = Message(Label.REJECT, seq_number, node_name, node_port, server.name, server.port, "", 0)
             outgoing_messages.put(msg)
 
         # Set log_append_tracker for that seq number to zero
@@ -176,7 +178,7 @@ def keyboard_thread():
     global keepRunning
 
     while keepRunning:
-        user_input = input("Enter message to send ")
+        user_input = input("Enter message to send: ")
 
         if user_input == "exit":
             keepRunning = False
@@ -184,7 +186,7 @@ def keyboard_thread():
 
         if is_leader:
             for server in table_of_servers:
-                msg = Message(Label.APPEND, seq_number_of_log, server_hostname, server_port, server.hostname, server.port, user_input, 0)
+                msg = Message(Label.APPEND, seq_number_of_log, node_name, node_port, server.name, server.port, user_input, 0)
                 outgoing_messages.put(msg)
 
             t = Thread(target=append_handler_thread, args=(seq_number_of_log, user_input))
@@ -192,7 +194,7 @@ def keyboard_thread():
             t.join() # BLOCK here until append_handler_thread finishes
 
         else:
-            msg = Message(Label.NEW_LOG_VALUE, 0, server_hostname, server_port, leader_hostname, leader_port, user_input, 0)
+            msg = Message(Label.NEW_LOG_VALUE, 0, node_name, node_port, leader_name, leader_port, user_input, 0)
             outgoing_messages.put(msg)
 
 def sender_thread():
@@ -200,7 +202,7 @@ def sender_thread():
         try:
             msg = outgoing_messages.get(timeout=0.5)
             serialized = pickle.dumps(msg)
-            server_socket.sendto(serialized, (proxy_hostname, proxy_port))
+            node_socket.sendto(serialized, (hostname, proxy_port))
 
         except Empty:
             continue
@@ -211,10 +213,10 @@ def sender_thread():
 def receiver_thread():
     while keepRunning:
         try:
-            data, addr = server_socket.recvfrom(2048)
+            data, addr = node_socket.recvfrom(2048)
             msg = pickle.loads(data)
             incoming_messages.put(msg)
-            print(f"Server got {msg.msg} with label {msg.label.name} from {msg.source_name}:{msg.source_port}")
+            print(f"Received: \"{msg.msg}\" with label {msg.label.name} from {msg.source_name}")
         except socket.timeout:
             continue  # lets loop re-check keepRunning
 
@@ -237,7 +239,7 @@ def main_server():
 
             if is_leader:
                 for server in table_of_servers:
-                    msg = Message(Label.APPEND, seq_number_of_log, server_hostname, server_port, server.hostname,
+                    msg = Message(Label.APPEND, seq_number_of_log, node_name, node_port, server.name,
                                   server.port, msg.msg, 0)
                     outgoing_messages.put(msg)
 
@@ -248,7 +250,7 @@ def main_server():
             log[msg.seq_number] = msg.msg
             log_append_tracker[msg.seq_number] += 1
 
-            msg = Message(Label.APPEND_ACK, msg.seq_number, server_hostname, server_port, leader_hostname,
+            msg = Message(Label.APPEND_ACK, msg.seq_number, node_name, node_port, leader_name,
                                   leader_port, msg.msg, 0)
             outgoing_messages.put(msg)
 
@@ -267,9 +269,8 @@ def main_server():
             print_log()
 
         elif msg.label == Label.HEARTBEAT:
-            msg = Message(Label.HEARTBEAT_ACK, 0, server_hostname, server_port, leader_hostname,
-                                  leader_port, "", 0)
-            outgoing_messages.put(msg)
+            new_msg = Message(Label.HEARTBEAT_ACK, 0, node_name, node_port, msg.source_name, msg.source_port, "", 0)
+            outgoing_messages.put(new_msg)
 
         elif msg.label == Label.HEARTBEAT_ACK:
 
@@ -278,10 +279,10 @@ def main_server():
         elif msg.label == Label.VOTE:
 
             if msg.seq_number >= seq_number_of_log:
-                msg = Message(Label.VOTE_FOR, msg.seq_number, server_hostname, server_port, msg.source_name, msg.source_port, vote_for=1)
+                msg = Message(Label.VOTE_FOR, msg.seq_number, node_name, node_port, msg.source_name, msg.source_port, vote_for=1)
 
             else:
-                msg = Message(Label.VOTE_FOR, msg.seq_number, server_hostname, server_port, msg.source_name, msg.source_port, vote_for=0)
+                msg = Message(Label.VOTE_FOR, msg.seq_number, node_name, node_port, msg.source_name, msg.source_port, vote_for=0)
 
             outgoing_messages.put(msg)
 
@@ -297,7 +298,7 @@ def main_server():
                     server.is_leader = False
             # Set the flag in the sever table of the new leader to 1
             for server in table_of_servers:
-                if (server.hostname == msg.source_name) and (server.port == msg.source_port):
+                if (server.name == msg.source_name) and (server.port == msg.source_port):
                     server.is_leader = True
 
 
@@ -305,21 +306,21 @@ def main_server():
             # Leader receives request to confirm the log position
             # Leader sends back an update signal if the seq number of follower is less than the current log seq number
             if msg.seq_number < seq_number_of_log:
-                msg = Message(Label.UPDATE_SIGNAL, seq_number_of_log, server_hostname, server_port,
+                msg = Message(Label.UPDATE_SIGNAL, seq_number_of_log, node_name, node_port,
                                msg.source_name, msg.source_port,"", 0)
                 outgoing_messages.put(msg)
 
         elif msg.label == Label.UPDATE_SIGNAL:
             # Follower initiates update sequence
-            msg = Message(Label.UPDATE, seq_number_of_log, server_hostname, server_port,
-                                  leader_hostname, leader_port,"",0)
+            msg = Message(Label.UPDATE, seq_number_of_log, node_name, node_port,
+                                  leader_name, leader_port,"",0)
             outgoing_messages.put(msg)
 
         elif msg.label == Label.UPDATE:
             # Leader sends missing log entry
             missing_log_value = log[msg.seq_number]
 
-            msg = Message(Label.UPDATE_ACK, msg.seq_number, server_hostname, server_port,
+            msg = Message(Label.UPDATE_ACK, msg.seq_number, node_name, node_port,
                                msg.source_name, msg.source_port, missing_log_value, 0)
 
             outgoing_messages.put(msg)
@@ -331,8 +332,8 @@ def main_server():
             seq_number_of_log += 1
 
             # confirm again
-            msg = Message(Label.UPDATE_CHECK, seq_number_of_log, server_hostname, server_port,
-                              leader_hostname,leader_port,"",0)
+            msg = Message(Label.UPDATE_CHECK, seq_number_of_log, node_name, node_port,
+                              leader_name,leader_port,"",0)
             outgoing_messages.put(msg)
 
         elif msg.label == Label.ADD_SERVER:
@@ -342,81 +343,81 @@ def main_server():
             )
 
 def setup_udp_socket():
-    global server_socket
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    server_socket.bind((server_hostname, server_port))
-    server_socket.settimeout(0.5)
+    global node_socket
+    node_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    node_socket.bind((hostname, node_port))
+    node_socket.settimeout(0.5)
 
-def parse_server_list(args, start_index):
+def parse_node_list(args, start_index):
 
     remaining = args[start_index:]
 
     if len(remaining) % 2 != 0:
-        raise ValueError("Server arguments must be in pairs (hostname port)")
+        raise ValueError("Server arguments must be in pairs (name port)")
 
     for i in range(0, len(remaining), 2):
-        hostname = remaining[i]
+        name = remaining[i]
         port = int(remaining[i + 1])
 
         if len(table_of_servers) >= MAX_SERVERS:
             print("Error: Maximum number of servers reached")
             break
 
-        table_of_servers.append(Server(hostname, port))
+        table_of_servers.append(Server(name, port))
 
 def parse_command_line_arguments():
     args = sys.argv
 
-    global proxy_hostname
+    global proxy_name
     global proxy_port
-    global server_hostname
-    global server_port
-    global leader_hostname
+    global node_name
+    global node_port
+    global leader_name
     global leader_port
     global is_leader
 
     # Minimum required args: script + proxy_name + proxy_port + 0 + leader_name + leader_port
     if len(args) < 5:
-        print("Usage: python raft.py proxy_name proxy_port server_name server_port 1 [server_name server_port ...]")
-        print("Usage: python raft.py proxy_name proxy_port server_name server_port 0 leader_name leader port [server_name server_port ...]")
+        print("Usage: python raft.py proxy_name proxy_port node_name node_port 1 [server_name server_port ...] \n OR \n")
+        print("Usage: python raft.py proxy_name proxy_port node_name node_port 0 leader_name leader_port [server_name server_port ...]")
         sys.exit(1)
 
     # The 0 after leader_port tell the program whether it's the leader or not
     # Extract proxy info
-    proxy_hostname = args[1]
+    proxy_name = args[1]
     proxy_port = int(args[2])
 
-    # Extract server info
-    server_hostname = args[3]
-    server_port = int(args[4])
+    # Extract node info
+    node_name = args[3]
+    node_port = int(args[4])
 
     if int(args[5]) == 1:
         is_leader = True
 
-        leader_hostname = args[3]
+        leader_name = args[3]
         leader_port = int(args[4])
-        print("Leader server is listening...")
+        print("Leader Node is listening...")
         # Remaining args (servers start from index 5)
         remaining = args[6:]
 
-        parse_server_list(remaining, 0)
+        parse_node_list(remaining, 0)
 
     if int(args[5]) == 0:
         is_leader = False
 
         # The next hostname and port number is the leader
 
-        print("Follower server is listening...")
+        print("Follower Node is listening...")
         # Extract leader info
-        leader_hostname = args[6]
+        leader_name = args[6]
         leader_port = int(args[7])
 
-        table_of_servers.append(Server(leader_hostname, leader_port, True))
+        table_of_servers.append(Server(leader_name, leader_port, True))
 
         # Remaining args (servers start from index 7)
         remaining = args[8:]
 
-        parse_server_list(remaining, 0)
+        parse_node_list(remaining, 0)
 
 def main():
 
@@ -436,23 +437,22 @@ def main():
     sender = threading.Thread(target=sender_thread, args=())
     receiver = threading.Thread(target=receiver_thread, args=())
     server = threading.Thread(target=main_server, args=())
+    heartbeat = threading.Thread(target=heartbeat_thread, args=())
 
     # Start threads
     sender.start()
     receiver.start()
     keyboard.start()
     server.start()
+    heartbeat.start()
 
     #
-
-    # heartbeat = threading.Thread(target=heartbeat_thread, args=())
     #
     # election = Thread(target=election_thread)
     # append_handler = Thread(target=append_handler_thread, args=())
     #
 
 
-    #heartbeat.start()
 
 
 if __name__ == "__main__":

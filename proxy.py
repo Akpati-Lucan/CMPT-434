@@ -20,7 +20,8 @@ from raft_header import Message, Server, Label
 
 keepRunning = True # Global Variable to stop threads
 
-proxy_hostname = None
+hostname = 'localhost'
+proxy_name = None
 proxy_port = None
 proxy_socket = None
 outgoing_messages = Queue()
@@ -33,20 +34,20 @@ MAX_SERVERS = 20
 
 def print_server_table():
     global table_of_servers
-    global proxy_hostname, proxy_port
+    global proxy_name, proxy_port
 
     # === Node Info ===
-    print("\n=== Current Node Info ===")
-    print(f"{'Proxy:':<15} {proxy_hostname}:{proxy_port}")
+    print("\n=== Current Proxy Info ===")
+    print(f"{proxy_name}:{proxy_port}")
 
     # === Server Table ===
     print("\n=== Server Table ===")
-    print(f"{'Hostname':<20} {'Port':<10} {'Leader':<10}")
+    print(f"{'Name':<20} {'Port':<10} {'Is Leader':<10}")
     print("-" * 45)
 
     for server in table_of_servers:
         leader_status = "Yes" if server.is_leader else "No"
-        print(f"{server.hostname:<20} {server.port:<10} {leader_status:<10}")
+        print(f"{server.name:<20} {server.port:<10} {leader_status:<10}")
 
     print("-" * 45)
 
@@ -57,7 +58,7 @@ def sender_thread():
         try:
             msg = outgoing_messages.get(timeout=0.5)
             serialized = pickle.dumps(msg)
-            proxy_socket.sendto(serialized, (msg.dest_name, msg.dest_port))
+            proxy_socket.sendto(serialized, (hostname, msg.dest_port))
         except Empty:
             continue
         except Exception as e:
@@ -82,13 +83,12 @@ def main_server():
 
         try:
             msg = incoming_messages.get(timeout=0.5)
-
         except Empty:
             continue  # lets loop re-check keepRunning
 
-        print(f"Server got {msg.msg} with label {msg.label.name} from {msg.source_name}:{msg.source_port}")
+        print(f"Proxy got \"{msg.msg}\" with label {msg.label.name} from {msg.source_name}:{msg.source_port}")
 
-        if msg.msg == "p-exit":
+        if msg.msg == "exit":
             keepRunning = False
             break
 
@@ -105,7 +105,7 @@ def main_server():
                     0,
                     msg.source_name,
                     msg.source_port,
-                    server.hostname,
+                    server.name,
                     server.port
                 )
 
@@ -117,13 +117,13 @@ def main_server():
 def setup_udp_socket():
     global proxy_socket
     proxy_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    proxy_socket.bind((proxy_hostname, proxy_port))
+    proxy_socket.bind((hostname, proxy_port))
     proxy_socket.settimeout(0.5)
 
 def parse_command_line_arguments():
     args = sys.argv
 
-    global proxy_hostname
+    global proxy_name
     global proxy_port
 
     # Minimum required args: script + proxy_name + proxy_port + leader_name + leader_port
@@ -132,7 +132,7 @@ def parse_command_line_arguments():
         sys.exit(1)
 
     # Extract proxy info
-    proxy_hostname = args[1]
+    proxy_name = args[1]
     proxy_port = int(args[2])
 
     # Extract leader info
@@ -151,14 +151,14 @@ def parse_command_line_arguments():
         sys.exit(1)
 
     for i in range(0, len(remaining), 2):
-        hostname = remaining[i]
+        name = remaining[i]
         port = int(remaining[i + 1])
 
         if len(table_of_servers) >= MAX_SERVERS:
             print("Error: Maximum number of servers reached")
             break
 
-        table_of_servers.append(Server(hostname, port))
+        table_of_servers.append(Server(name, port))
 
 def main():
     parse_command_line_arguments()
