@@ -32,9 +32,10 @@ incoming_messages = Queue()
 
 number_of_votes = 0
 number_of_commits = 0
-heartbeat_timeout = random(0, 5)
-election_timeout = random(0, 5)
-append_timeout = random(0, 5)
+
+heartbeat_timeout = random.randint(0, 5)
+election_timeout = random.randint(0, 5)
+append_timeout = random.randint(0, 5)
 
 heartbeat_ack = False
 is_leader = False
@@ -50,6 +51,30 @@ heartbeat = Thread
 append_handler = Thread
 
 ####################################################################################
+def print_server_table():
+    global table_of_servers
+    global server_hostname, server_port
+    global proxy_hostname, proxy_port
+    global leader_hostname, leader_port
+
+    # === Node Info ===
+    print("\n=== Current Node Info ===")
+    print(f"{'Proxy:':<15} {proxy_hostname}:{proxy_port}")
+    print(f"{'Server:':<15} {server_hostname}:{server_port}")
+    print(f"{'Leader:':<15} {leader_hostname}:{leader_port}")
+
+    # === Server Table ===
+    print("\n=== Server Table ===")
+    print(f"{'Hostname':<20} {'Port':<10} {'Leader':<10}")
+    print("-" * 45)
+
+    for server in table_of_servers:
+        leader_status = "Yes" if server.is_leader else "No"
+        print(f"{server.hostname:<20} {server.port:<10} {leader_status:<10}")
+
+    print("-" * 45)
+####################################################################################
+
 
 def heartbeat_thread():
     global heartbeat_ack
@@ -63,11 +88,8 @@ def heartbeat_thread():
 
         time.sleep(heartbeat_timeout)
 
-        if heartbeat_ack:
-            time.sleep(heartbeat_timeout)
-
-        else:
-            election.start()
+        if not heartbeat_ack:
+            Thread(target=election_thread).start()
             break
 
 def election_thread():
@@ -92,7 +114,7 @@ def election_thread():
             outgoing_messages.put(msg)
 
     else:
-        heartbeat.start()
+        Thread(target=heartbeat_thread).start()
 
     number_of_votes = 0
 
@@ -120,29 +142,35 @@ def keyboard_thread():
         user_input = input("Enter message to send ")
 
         if is_leader:
-
             for server in table_of_servers:
                 msg = Message(Label.APPEND, seq_number_of_log, server_hostname, server_port, server.hostname, server.port, user_input, 0)
                 outgoing_messages.put(msg)
 
-            append_handler.start(seq_number_of_log)
+            #Thread(target=append_handler_thread, args=(seq_number_of_log,)).start()
 
         else:
-
             msg = Message(Label.NEW_LOG_VALUE, 0, server_hostname, server_port, leader_hostname, leader_port, user_input, 0)
             outgoing_messages.put(msg)
 
 def sender_thread():
+    print("Sender Thread is starting...")
     while True:
-        msg = outgoing_messages.get()
-        serialized = pickle.dumps(msg)
-        socket.sendto(serialized, (proxy_hostname, proxy_port))
+        try:
+            msg = outgoing_messages.get()
+            serialized = pickle.dumps(msg)
+            server_socket.sendto(serialized, (proxy_hostname, proxy_port))
+        except Exception as e:
+            print("Sender error:", e)
 
 def receiver_thread():
+    print("Receiver Thread is starting...")
     while True:
-        data, addr = socket.recvfrom(2048)
-        msg = pickle.loads(data)
-        incoming_messages.put(msg)
+        try:
+            data, addr = server_socket.recvfrom(2048)
+            msg = pickle.loads(data)
+            incoming_messages.put(msg)
+        except Exception as e:
+            print("Sender error:", e)
 
 def main_server():
     global seq_number_of_log
@@ -184,7 +212,6 @@ def main_server():
             seq_number_of_log += 1
 
         elif msg.label == Label.HEARTBEAT:
-
             msg = Message(Label.HEARTBEAT_ACK, 0, server_hostname, server_port, leader_hostname,
                                   leader_port, "", 0)
             outgoing_messages.put(msg)
@@ -303,7 +330,7 @@ def parse_command_line_arguments():
         print("Usage: python raft.py proxy_name proxy_port server_name server_port 0 leader_name leader port [server_name server_port ...]")
         sys.exit(1)
 
-    # The 0 after leader_port tell the program whether its the leader or not
+    # The 0 after leader_port tell the program whether it's the leader or not
     # Extract proxy info
     proxy_hostname = args[1]
     proxy_port = int(args[2])
@@ -312,22 +339,26 @@ def parse_command_line_arguments():
     server_hostname = args[3]
     server_port = int(args[4])
 
-    if args[5] == 1:
+    if int(args[5]) == 1:
         is_leader = True
 
+        print("Leader server is listening...")
         # Remaining args (servers start from index 5)
         remaining = args[6:]
 
         parse_server_list(remaining, 0)
 
-    if args[5] == 0:
+    if int(args[5]) == 0:
         is_leader = False
 
         # The next hostname and port number is the leader
 
+        print("Follower server is listening...")
         # Extract leader info
         leader_hostname = args[6]
         leader_port = int(args[7])
+
+        table_of_servers.append(Server(leader_hostname, leader_port))
 
         # Remaining args (servers start from index 7)
         remaining = args[8:]
@@ -339,20 +370,36 @@ def main():
 
     parse_command_line_arguments()
 
+    print_server_table()
+
     setup_udp_socket()
+
+    global election
+    global append_handler
+    global heartbeat
 
 
     # Create threads
+    keyboard = threading.Thread(target=keyboard_thread, args=())
     sender = threading.Thread(target=sender_thread, args=())
     receiver = threading.Thread(target=receiver_thread, args=())
-    server = threading.Thread(target=main_server, args=())
-    heartbeat = threading.Thread(target=heartbeat_thread, args=())
-    keyboard = threading.Thread(target=keyboard_thread(), args=())
-    election = threading.Thread(target=election_thread, args=())
 
     # Start threads
     sender.start()
     receiver.start()
-    server.start()
-    heartbeat.start()
     keyboard.start()
+
+    #
+    # server = threading.Thread(target=main_server, args=())
+    # heartbeat = threading.Thread(target=heartbeat_thread, args=())
+    #
+    # election = Thread(target=election_thread)
+    # append_handler = Thread(target=append_handler_thread, args=())
+    #
+
+    #server.start()
+    #heartbeat.start()
+
+
+if __name__ == "__main__":
+    main()

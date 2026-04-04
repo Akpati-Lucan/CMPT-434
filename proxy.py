@@ -29,47 +29,39 @@ MAX_SERVERS = 20
 
 ####################################################################################
 
+def print_server_table():
+    global table_of_servers
+    global proxy_hostname, proxy_port
+
+    # === Node Info ===
+    print("\n=== Current Node Info ===")
+    print(f"{'Proxy:':<15} {proxy_hostname}:{proxy_port}")
+
+    # === Server Table ===
+    print("\n=== Server Table ===")
+    print(f"{'Hostname':<20} {'Port':<10} {'Leader':<10}")
+    print("-" * 45)
+
+    for server in table_of_servers:
+        leader_status = "Yes" if server.is_leader else "No"
+        print(f"{server.hostname:<20} {server.port:<10} {leader_status:<10}")
+
+    print("-" * 45)
+
+####################################################################################
+
 
 def sender_thread():
-
     while True:
-        #msg = outgoing_messages.get()
-        user_msg = input("Enter message to send (or 'quit'): ")
-
-        if user_msg.lower() == "quit":
-            print("Exiting sender thread...")
-            break
-
-        if not table_of_servers:
-            print("No leader available yet.")
-            continue
-
-        leader = table_of_servers[0]
-        msg = Message(
-            label="APPEND",
-            seq_number=1,
-            source_name=proxy_hostname,
-            source_port=proxy_port,
-            dest_name=leader.hostname,
-            dest_port=leader.port,
-            msg=user_msg,
-            vote_for=0
-        )
+        msg = outgoing_messages.get()
         try:
             serialized = pickle.dumps(msg)
             proxy_socket.sendto(serialized, (msg.dest_name, msg.dest_port))
-
-
         except Exception as e:
             print("Send error:", e)
 
-        time.sleep(1)  # prevent flooding
 
 def receiver_thread():
-    global proxy_socket
-    global outgoing_messages
-    global incoming_messages
-
     while True:
         data, addr = proxy_socket.recvfrom(2048)
         try:
@@ -77,7 +69,6 @@ def receiver_thread():
         except Exception as e:
             print("Error decoding message:", e)
             continue
-
         incoming_messages.put(msg)
 
 def main_server():
@@ -87,6 +78,7 @@ def main_server():
         msg = incoming_messages.get()
 
         print(f"Server got {msg.msg} from {msg.source_name}:{msg.source_port}")
+
         if msg.label == Label.NEW_SERVER:
 
             new_server = Server(msg.source_name, msg.source_port)
@@ -161,6 +153,7 @@ def parse_command_line_arguments():
 
 def main():
     parse_command_line_arguments()
+    print_server_table()
     setup_udp_socket()
 
     # Create threads
