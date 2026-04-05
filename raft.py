@@ -36,6 +36,7 @@ incoming_messages = Queue()
 number_of_votes = 0
 number_of_commits = 0
 term = 0
+voted = False
 
 heartbeat_timeout = random.randint(0, 5)
 election_timeout = random.randint(0, 5)
@@ -46,6 +47,7 @@ is_leader = False
 seq_number_of_log = 0
 
 table_of_nodes = []
+Total_nodes = 0
 MAX_SERVERS = 20
 log = [""] * 1024
 log_append_tracker = [0] * 1024
@@ -106,6 +108,7 @@ def print_log():
 def heartbeat_thread():
     global heartbeat_ack
     global election
+    global voted
     while heartbeat_ack:
         if not is_leader:
             msg = Message(Label.HEARTBEAT, 0, node_name, node_port, leader_name, leader_port, "", 0, term)
@@ -117,26 +120,32 @@ def heartbeat_thread():
 
             if not heartbeat_ack:
                 print("No heartbeat ack received, starting election...")
-                election.start()
-                break
+                if not voted:
+                    voted = True
+                    election.start()
+                    break
 
 def election_thread():
     global number_of_votes
     global is_leader
+    global term
     global heartbeat
 
+    term += 1
+    number_of_votes += 1
+    majority = len(table_of_nodes) // 2 + 1
+
     for node in table_of_nodes:
+        if node.name == node_name and node.port == node_port:
+            continue
         msg = Message(Label.VOTE, seq_number_of_log, node_name, node_port, node.name, node.port, "", 0, term)
         outgoing_messages.put(msg)
 
-    number_of_votes += 1
-
     time.sleep(election_timeout)
 
-    if number_of_votes >= len(table_of_nodes) / 2:
-
+    if number_of_votes >= majority:
         is_leader = True
-
+        print("Election won, becoming leader!")
         for node in table_of_nodes:
             msg = Message(Label.NEW_LEADER, 0, node_name, node_port, node.name, node.port, "", 0, term)
             outgoing_messages.put(msg)
@@ -145,6 +154,7 @@ def election_thread():
         Thread(target=heartbeat_thread).start()
 
     number_of_votes = 0
+    voted = False
 
 def append_handler_thread(seq_number, message):
 
@@ -228,6 +238,9 @@ def main_server():
     global seq_number_of_log
     global heartbeat_ack
     global number_of_votes
+    global voted
+    global term
+    
     while keepRunning:
 
         try:
@@ -270,10 +283,12 @@ def main_server():
             heartbeat_ack = True
 
         elif msg.label == Label.VOTE:
-            if msg.seq_number >= seq_number_of_log:
-                msg = Message(Label.VOTE_FOR, msg.seq_number, node_name, node_port, msg.source_name, msg.source_port, vote_for=1)
-            else:
-                msg = Message(Label.VOTE_FOR, msg.seq_number, node_name, node_port, msg.source_name, msg.source_port, vote_for=0)
+            if not voted:
+                if msg.term >= term:
+                    msg = Message(Label.VOTE_FOR, msg.seq_number, node_name, node_port, msg.source_name, msg.source_port, vote_for=1)
+                else:
+                    msg = Message(Label.VOTE_FOR, msg.seq_number, node_name, node_port, msg.source_name, msg.source_port, vote_for=0)
+                voted = True
 
             outgoing_messages.put(msg)
 
@@ -282,6 +297,7 @@ def main_server():
                 number_of_votes += 1
 
         elif msg.label == Label.NEW_LEADER:
+            voted = False
             # set the flag of the old leader to zero
             for node in table_of_nodes:
                 if node.is_leader:
@@ -290,7 +306,6 @@ def main_server():
             for node in table_of_nodes:
                 if (node.name == msg.source_name) and (node.port == msg.source_port):
                     node.is_leader = True
-
 
         elif msg.label == Label.UPDATE_CHECK:
             # Leader receives request to confirm the log position
@@ -337,7 +352,7 @@ def setup_udp_socket():
     node_socket.settimeout(0.5)
 
 def parse_node_list(args, start_index):
-
+    global Total_nodes
     remaining = args[start_index:]
 
     if len(remaining) % 2 != 0:
@@ -352,6 +367,8 @@ def parse_node_list(args, start_index):
             break
 
         table_of_nodes.append(Server(name, port))
+        Total_nodes += 1
+
 
 def parse_command_line_arguments():
     args = sys.argv
@@ -363,6 +380,7 @@ def parse_command_line_arguments():
     global leader_name
     global leader_port
     global is_leader
+    global Total_nodes
 
     # Minimum required args: script + proxy_name + proxy_port + 0 + leader_name + leader_port
     if len(args) < 5:
@@ -378,6 +396,7 @@ def parse_command_line_arguments():
     # Extract node info
     node_name = args[3]
     node_port = int(args[4])
+    Total_nodes += 1
 
     if int(args[5]) == 1:
         is_leader = True
@@ -401,7 +420,7 @@ def parse_command_line_arguments():
         leader_port = int(args[7])
 
         table_of_nodes.append(Server(leader_name, leader_port, True))
-
+        Total_nodes += 1
         # Remaining args (servers start from index 7)
         remaining = args[8:]
 
