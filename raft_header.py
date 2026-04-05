@@ -6,7 +6,7 @@ from enum import IntEnum
 
 class Message:
     def __init__(self, label, seq_number, source_name, source_port,
-                 dest_name, dest_port, msg="", vote_for=0):
+                 dest_name, dest_port, msg="", vote_for=0, term=0):
 
         self.label = label
         self.seq_number = seq_number
@@ -16,6 +16,7 @@ class Message:
         self.dest_port = dest_port
         self.msg = msg
         self.vote_for = vote_for
+        self.term = term
 
 
 class Server:
