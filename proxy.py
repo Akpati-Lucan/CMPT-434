@@ -19,6 +19,7 @@ from raft_header import Message, Server, Label
 # Global Variables
 
 keepRunning = True # Global Variable to stop threads
+electing = False # Global Variable to indicate if an election is in progress
 
 hostname = 'localhost'
 proxy_name = None
@@ -27,13 +28,13 @@ proxy_socket = None
 outgoing_messages = Queue()
 incoming_messages = Queue()
 
-table_of_servers = []
+table_of_nodes = []
 MAX_SERVERS = 20
 
 ####################################################################################
 
 def print_server_table():
-    global table_of_servers
+    global table_of_nodes
     global proxy_name, proxy_port
 
     # === Node Info ===
@@ -45,7 +46,7 @@ def print_server_table():
     print(f"{'Name':<20} {'Port':<10} {'Is Leader':<10}")
     print("-" * 45)
 
-    for server in table_of_servers:
+    for server in table_of_nodes:
         leader_status = "Yes" if server.is_leader else "No"
         print(f"{server.name:<20} {server.port:<10} {leader_status:<10}")
 
@@ -93,13 +94,10 @@ def main_server():
             break
 
         if msg.label == Label.NEW_SERVER:
-
             new_server = Server(msg.source_name, msg.source_port)
+            table_of_nodes.append(new_server)
 
-            table_of_servers.append(new_server)
-
-            for server in table_of_servers:
-
+            for server in table_of_nodes:
                 add_msg = Message(
                     Label.ADD_SERVER,
                     0,
@@ -108,9 +106,18 @@ def main_server():
                     server.name,
                     server.port
                 )
-
                 outgoing_messages.put(add_msg)
 
+        if msg.label == Label.NEW_LEADER:
+            # set the flag of the old leader to zero
+            for node in table_of_nodes:
+                if node.is_leader:
+                    node.is_leader = False
+            # Set the flag in the sever table of the new leader to 1
+            for node in table_of_nodes:
+                if (node.name == msg.source_name) and (node.port == msg.source_port):
+                    node.is_leader = True
+            outgoing_messages.put(msg)
         else:
             outgoing_messages.put(msg)
 
@@ -140,7 +147,7 @@ def parse_command_line_arguments():
     leader_port = int(args[4])
 
     # Add leader to table
-    table_of_servers.append(Server(leader_name, leader_port, is_leader=True))
+    table_of_nodes.append(Server(leader_name, leader_port, is_leader=True))
 
     # Remaining args (servers start from index 5)
     remaining = args[5:]
@@ -154,11 +161,11 @@ def parse_command_line_arguments():
         name = remaining[i]
         port = int(remaining[i + 1])
 
-        if len(table_of_servers) >= MAX_SERVERS:
+        if len(table_of_nodes) >= MAX_SERVERS:
             print("Error: Maximum number of servers reached")
             break
 
-        table_of_servers.append(Server(name, port))
+        table_of_nodes.append(Server(name, port))
 
 def main():
     parse_command_line_arguments()
