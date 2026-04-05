@@ -21,6 +21,7 @@ from raft_header import Message, Server, Label
 # Global Variables
 
 keepRunning = True # Global Variable to stop threads
+electing = False # Global Variable to indicate if an election is in progress
 
 hostname = 'localhost'
 node_name = None
@@ -39,7 +40,7 @@ term = 0
 voted = False
 
 heartbeat_timeout = random.randint(0, 5)
-election_timeout = random.randint(0, 5)
+election_timeout = random.randint(1, 5)
 append_timeout = random.uniform(0.005, 0.02)
 
 heartbeat_ack = True
@@ -108,32 +109,49 @@ def print_log():
 def heartbeat_thread():
     global heartbeat_ack
     global election
-    global voted
-    while heartbeat_ack:
+    global electing
+
+    while keepRunning:
         if not is_leader:
-            msg = Message(Label.HEARTBEAT, 0, node_name, node_port, leader_name, leader_port, "", 0, term)
-            outgoing_messages.put(msg)
-
-            heartbeat_ack = False
-
-            time.sleep(heartbeat_timeout)
-
-            if not heartbeat_ack:
-                print("No heartbeat ack received, starting election...")
-                if not voted:
-                    voted = True
-                    election.start()
+            leader = None
+            for node in table_of_nodes:
+                if node.is_leader:
+                    leader = node
                     break
+            
+            if leader:
+                msg = Message(Label.HEARTBEAT, 0, node_name, node_port, leader.name, leader.port, "", 0, term)
+                outgoing_messages.put(msg)
+                heartbeat_ack = False
+                time.sleep(heartbeat_timeout)
+                
+                if not heartbeat_ack:
+                    if not electing:
+                        electing = True
+                        election = Thread(target=election_thread)
+                        election.start()
+            else:
+                # No leader found, start election if not already electing
+                if not electing:
+                    electing = True
+                    election = Thread(target=election_thread)
+                    election.start()
+        else:
+            time.sleep(heartbeat_timeout)  # Leaders can sleep or handle other tasks
 
 def election_thread():
     global number_of_votes
     global is_leader
     global term
     global heartbeat
+    global electing
 
     term += 1
     number_of_votes += 1
     majority = len(table_of_nodes) // 2 + 1
+
+    if not electing:
+        return
 
     for node in table_of_nodes:
         if node.name == node_name and node.port == node_port:
@@ -145,16 +163,15 @@ def election_thread():
 
     if number_of_votes >= majority:
         is_leader = True
+        leader_name = node_name
+        leader_port = node_port
         print("Election won, becoming leader!")
         for node in table_of_nodes:
             msg = Message(Label.NEW_LEADER, 0, node_name, node_port, node.name, node.port, "", 0, term)
             outgoing_messages.put(msg)
 
-    else:
-        Thread(target=heartbeat_thread).start()
-
     number_of_votes = 0
-    voted = False
+    electing = False
 
 def append_handler_thread(seq_number, message):
 
@@ -238,8 +255,10 @@ def main_server():
     global seq_number_of_log
     global heartbeat_ack
     global number_of_votes
-    global voted
+    global electing
     global term
+    global leader_name
+    global leader_port
     
     while keepRunning:
 
@@ -283,12 +302,10 @@ def main_server():
             heartbeat_ack = True
 
         elif msg.label == Label.VOTE:
-            if not voted:
-                if msg.term >= term:
-                    msg = Message(Label.VOTE_FOR, msg.seq_number, node_name, node_port, msg.source_name, msg.source_port, vote_for=1)
-                else:
-                    msg = Message(Label.VOTE_FOR, msg.seq_number, node_name, node_port, msg.source_name, msg.source_port, vote_for=0)
-                voted = True
+            if msg.term >= term:
+                msg = Message(Label.VOTE_FOR, msg.seq_number, node_name, node_port, msg.source_name, msg.source_port, vote_for=1)
+            else:
+                msg = Message(Label.VOTE_FOR, msg.seq_number, node_name, node_port, msg.source_name, msg.source_port, vote_for=0)
 
             outgoing_messages.put(msg)
 
@@ -297,7 +314,7 @@ def main_server():
                 number_of_votes += 1
 
         elif msg.label == Label.NEW_LEADER:
-            voted = False
+            electing = False
             # set the flag of the old leader to zero
             for node in table_of_nodes:
                 if node.is_leader:
@@ -306,6 +323,8 @@ def main_server():
             for node in table_of_nodes:
                 if (node.name == msg.source_name) and (node.port == msg.source_port):
                     node.is_leader = True
+                    leader_name = msg.source_name
+                    leader_port = msg.source_port
 
         elif msg.label == Label.UPDATE_CHECK:
             # Leader receives request to confirm the log position
