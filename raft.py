@@ -35,6 +35,7 @@ incoming_messages = Queue()
 
 number_of_votes = 0
 number_of_commits = 0
+term = 0
 
 heartbeat_timeout = random.randint(0, 5)
 election_timeout = random.randint(0, 5)
@@ -107,7 +108,7 @@ def heartbeat_thread():
     global election
     while heartbeat_ack:
         if not is_leader:
-            msg = Message(Label.HEARTBEAT, 0, node_name, node_port, leader_name, leader_port, "", 0)
+            msg = Message(Label.HEARTBEAT, 0, node_name, node_port, leader_name, leader_port, "", 0, term)
             outgoing_messages.put(msg)
 
             heartbeat_ack = False
@@ -125,7 +126,7 @@ def election_thread():
     global heartbeat
 
     for node in table_of_nodes:
-        msg = Message(Label.VOTE, seq_number_of_log, node_name, node_port, node.name, node.port, "", 0)
+        msg = Message(Label.VOTE, seq_number_of_log, node_name, node_port, node.name, node.port, "", 0, term)
         outgoing_messages.put(msg)
 
     number_of_votes += 1
@@ -137,7 +138,7 @@ def election_thread():
         is_leader = True
 
         for node in table_of_nodes:
-            msg = Message(Label.NEW_LEADER, 0, node_name, node_port, node.name, node.port, "", 0)
+            msg = Message(Label.NEW_LEADER, 0, node_name, node_port, node.name, node.port, "", 0, term)
             outgoing_messages.put(msg)
 
     else:
@@ -156,7 +157,7 @@ def append_handler_thread(seq_number, message):
     if log_append_tracker[seq_number] >= len(table_of_nodes) / 2:
 
         for node in table_of_nodes:
-            msg = Message(Label.COMMIT, seq_number, node_name, node_port, node.name, node.port, "", 0)
+            msg = Message(Label.COMMIT, seq_number, node_name, node_port, node.name, node.port, "", 0, term)
             outgoing_messages.put(msg)
 
         # Add msg to the log
@@ -166,7 +167,7 @@ def append_handler_thread(seq_number, message):
     else:
 
         for node in table_of_nodes:
-            msg = Message(Label.REJECT, seq_number, node_name, node_port, node.name, node.port, "", 0)
+            msg = Message(Label.REJECT, seq_number, node_name, node_port, node.name, node.port, "", 0, term)
             outgoing_messages.put(msg)
 
         # Set log_append_tracker for that seq number to zero
@@ -244,48 +245,39 @@ def main_server():
                 Thread(target=append_handler_thread, args=(seq_number_of_log, msg.msg)).start()
 
         elif msg.label == Label.APPEND:
-
             log[msg.seq_number] = msg.msg
             log_append_tracker[msg.seq_number] += 1
 
-            msg = Message(Label.APPEND_ACK, msg.seq_number, node_name, node_port, leader_name,
-                                  leader_port, msg.msg, 0)
+            msg = Message(Label.APPEND_ACK, msg.seq_number, node_name, node_port, leader_name, leader_port, msg.msg, 0, term)
             outgoing_messages.put(msg)
 
         elif msg.label == Label.APPEND_ACK:
-
             log_append_tracker[msg.seq_number] += 1
 
         elif msg.label == Label.REJECT:
-
             log[msg.seq_number] = ""
             print_log()
 
         elif msg.label == Label.COMMIT:
-
             seq_number_of_log = msg.seq_number
             print_log()
 
         elif msg.label == Label.HEARTBEAT:
-            new_msg = Message(Label.HEARTBEAT_ACK, 0, node_name, node_port, msg.source_name, msg.source_port, "", 0)
+            new_msg = Message(Label.HEARTBEAT_ACK, 0, node_name, node_port, msg.source_name, msg.source_port, "", 0, term)
             outgoing_messages.put(new_msg)
 
         elif msg.label == Label.HEARTBEAT_ACK:
-
             heartbeat_ack = True
 
         elif msg.label == Label.VOTE:
-
             if msg.seq_number >= seq_number_of_log:
                 msg = Message(Label.VOTE_FOR, msg.seq_number, node_name, node_port, msg.source_name, msg.source_port, vote_for=1)
-
             else:
                 msg = Message(Label.VOTE_FOR, msg.seq_number, node_name, node_port, msg.source_name, msg.source_port, vote_for=0)
 
             outgoing_messages.put(msg)
 
         elif msg.label == Label.VOTE_FOR:
-
             if msg.vote_for == 1:
                 number_of_votes += 1
 
@@ -318,8 +310,7 @@ def main_server():
             # Leader sends missing log entry
             missing_log_value = log[msg.seq_number]
 
-            msg = Message(Label.UPDATE_ACK, msg.seq_number, node_name, node_port,
-                               msg.source_name, msg.source_port, missing_log_value, 0)
+            msg = Message(Label.UPDATE_ACK, msg.seq_number, node_name, node_port,msg.source_name, msg.source_port, missing_log_value, 0, term)
 
             outgoing_messages.put(msg)
 
@@ -335,7 +326,6 @@ def main_server():
             outgoing_messages.put(msg)
 
         elif msg.label == Label.ADD_SERVER:
-
             table_of_nodes.append(
                 Server(msg.source_name, msg.source_port)
             )
