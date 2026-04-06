@@ -17,9 +17,7 @@ from raft_header import Message, Server, Label
 
 ####################################################################################
 # Global Variables
-
 keepRunning = True # Global Variable to stop threads
-
 proxy_hostname = None
 proxy_port = None
 proxy_socket = None
@@ -86,31 +84,21 @@ def main_server():
         except Empty:
             continue  # lets loop re-check keepRunning
 
-        print(f"Server got {msg.msg} with label {msg.label.name} from {msg.source_name}:{msg.source_port}")
-
         if msg.msg == "p-exit":
             keepRunning = False
             break
 
+        print(f"Server got {msg.msg} with label {msg.label.name} from {msg.source_name}:{msg.source_port}")
+
         if msg.label == Label.NEW_SERVER:
 
             new_server = Server(msg.source_name, msg.source_port)
-
             table_of_servers.append(new_server)
-
             for server in table_of_servers:
 
-                add_msg = Message(
-                    Label.ADD_SERVER,
-                    0,
-                    msg.source_name,
-                    msg.source_port,
-                    server.hostname,
-                    server.port
-                )
-
+                add_msg = Message(Label.ADD_SERVER,0,
+                                  msg.source_name, msg.source_port, server.hostname, server.port)
                 outgoing_messages.put(add_msg)
-
         else:
             outgoing_messages.put(msg)
 

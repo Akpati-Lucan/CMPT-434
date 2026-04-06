@@ -100,7 +100,6 @@ def print_log():
 
 ####################################################################################
 
-
 def heartbeat_thread():
     global heartbeat_ack
     global election
@@ -201,10 +200,8 @@ def sender_thread():
             msg = outgoing_messages.get(timeout=0.5)
             serialized = pickle.dumps(msg)
             server_socket.sendto(serialized, (proxy_hostname, proxy_port))
-
         except Empty:
             continue
-
         except Exception as e:
             print("Sender error:", e)
 
@@ -217,7 +214,6 @@ def receiver_thread():
             print(f"Server got {msg.msg} with label {msg.label.name} from {msg.source_name}:{msg.source_port}")
         except socket.timeout:
             continue  # lets loop re-check keepRunning
-
         except Exception as e:
             print("Sender error:", e)
 
@@ -421,15 +417,11 @@ def parse_command_line_arguments():
 def main():
 
     parse_command_line_arguments()
-
     print_server_table()
-
     setup_udp_socket()
-
     global election
     global append_handler
     global heartbeat
-
 
     # Create threads
     keyboard = threading.Thread(target=keyboard_thread, args=())
@@ -443,17 +435,9 @@ def main():
     keyboard.start()
     server.start()
 
-    #
-
     # heartbeat = threading.Thread(target=heartbeat_thread, args=())
-    #
     # election = Thread(target=election_thread)
-    # append_handler = Thread(target=append_handler_thread, args=())
-    #
-
-
     #heartbeat.start()
-
 
 if __name__ == "__main__":
     main()
