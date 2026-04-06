@@ -243,7 +243,6 @@ def receiver_thread():
             data, addr = node_socket.recvfrom(2048)
             msg = pickle.loads(data)
             incoming_messages.put(msg)
-            print(f"Received: \"{msg.msg}\" with label {msg.label.name} from {msg.source_name}")
         except socket.timeout:
             continue  # lets loop re-check keepRunning
 
