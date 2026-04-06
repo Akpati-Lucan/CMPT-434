@@ -203,12 +203,14 @@ def append_handler_thread(seq_number, message):
 def keyboard_thread():
     global seq_number_of_log
     global keepRunning
+    global node_socket
 
     while keepRunning:
         user_input = input("Enter message to send: ")
 
         if user_input == "exit":
             keepRunning = False
+            node_socket.close()
             break
 
         if is_leader:
@@ -253,6 +255,7 @@ def receiver_thread():
 def main_server():
     global seq_number_of_log
     global heartbeat_ack
+    global is_leader
     global number_of_votes
     global electing
     global term
@@ -301,6 +304,7 @@ def main_server():
             heartbeat_ack = True
 
         elif msg.label == Label.VOTE:
+            electing = True
             if msg.term >= term:
                 msg = Message(Label.VOTE_FOR, msg.seq_number, node_name, node_port, msg.source_name, msg.source_port, vote_for=1)
             else:
@@ -328,13 +332,16 @@ def main_server():
         elif msg.label == Label.UPDATE_CHECK:
             # Leader receives request to confirm the log position
             # Leader sends back an update signal if the seq number of follower is less than the current log seq number
-            if msg.seq_number < seq_number_of_log:
+            if msg.seq_number <= seq_number_of_log and is_leader:
                 msg = Message(Label.UPDATE_SIGNAL, seq_number_of_log, node_name, node_port,
                                msg.source_name, msg.source_port,"", 0)
                 outgoing_messages.put(msg)
 
         elif msg.label == Label.UPDATE_SIGNAL:
             # Follower initiates update sequence
+            leader_name = msg.source_name
+            leader_port = msg.source_port
+            is_leader = False
             msg = Message(Label.UPDATE, seq_number_of_log, node_name, node_port,
                                   leader_name, leader_port,"",0)
             outgoing_messages.put(msg)
@@ -353,10 +360,10 @@ def main_server():
 
             seq_number_of_log += 1
 
-            # confirm again
-            msg = Message(Label.UPDATE_CHECK, seq_number_of_log, node_name, node_port,
-                              leader_name,leader_port,"",0)
-            outgoing_messages.put(msg)
+            # # confirm again
+            # msg = Message(Label.UPDATE_CHECK, seq_number_of_log, node_name, node_port,
+            #                   leader_name,leader_port,"",0)
+            # outgoing_messages.put(msg)
 
         elif msg.label == Label.ADD_SERVER:
             table_of_nodes.append(
@@ -368,6 +375,9 @@ def setup_udp_socket():
     node_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     node_socket.bind((hostname, node_port))
     node_socket.settimeout(0.5)
+    for node in table_of_nodes:
+        msg = Message(Label.UPDATE_CHECK, 0, node_name, node_port, node.name, node.port, "", 0, term)
+        outgoing_messages.put(msg)
 
 def parse_node_list(args, start_index):
     global Total_nodes
