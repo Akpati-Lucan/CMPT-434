@@ -1,3 +1,11 @@
+# Name: Lucan Akpati
+# NSID: jbs671
+# Student Number: 11331253
+
+# Name: Samuel Olukuewu
+# NSID: nds091
+# Student Number: 11323380
+
 ALL NODES ARE ON LOCALHOST: no need to type it as command line 
 
 For three servers one proxy, one leader, one follower

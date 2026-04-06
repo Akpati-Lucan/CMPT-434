@@ -66,7 +66,23 @@ python raft.py localhost 9000 localhost 10001 0 localhost 8000
 2. FOUR SERVERS (1 Proxy, 1 Leader, 2 Followers + Additional Node)
 
 Start Proxy:
-python proxy.py proxy_name proxy_port leader_name leader_port [server_name server_port ...]
+python proxy.py proxy_name proxy_port leader_n
+
+KEYBOARD COMMANDS (NODE INTERACTION)
+
+When running any Raft node, the keyboard thread accepts the following commands:
+
+* `exit`  - Stops the node and all its threads gracefully.
+* `log`   - Prints the current state of the log for this node.
+* `table` - Prints the current server table, showing which node is leader.
+* Any other text input:
+  - If this node is the leader:
+    - Sends an `APPEND` message to all followers.
+    - Starts `append_handler_thread` to handle replication and commit.
+  - If this node is a follower:
+    - Sends a `NEW_LOG_VALUE` message to the current leader.
+
+Note: All messages are propagated using the Raft protocol to maintain consistency and commit order.ame leader_port [server_name server_port ...]
 
 Examples:
 python proxy.py localhost 9000 localhost 8000 localhost 10001 localhost 10002

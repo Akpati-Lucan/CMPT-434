@@ -1,0 +1,70 @@
+# Name: Lucan Akpati
+# NSID: jbs671
+# Student Number: 11331253
+
+# Name: Samuel Olukuewu
+# NSID: nds091
+# Student Number: 11323380
+
+### MESSAGE & SERVER DEFINITIONS
+
+The system uses structured message objects to communicate between nodes. These are defined in raft_header.py.
+
+#### Message Class
+
+The `Message` class encapsulates all information sent between nodes:
+
+Fields:
+
+- label: Type of message (Label enum)
+- seq_number: Sequence number of the log entry or message
+- source_name: Hostname of the sending node
+- source_port: Port of the sending node
+- dest_name: Hostname of the receiving node
+- dest_port: Port of the receiving node
+- msg: Actual message content (string)
+- vote_for: Used during elections; 1 if voting for the candidate, 0 otherwise
+- term: Raft term number, used to maintain election and log consistency
+
+Example Usage:
+
+msg = Message(Label.APPEND, seq_number_of_log, node_name, node_port,
+              follower_name, follower_port, "Hello followers!", 0, term)
+
+#### Server Class
+
+The `Server` class represents a node in the cluster:
+
+Fields:
+
+- name: Hostname of the server
+- port: Listening port of the server
+- is_leader: Boolean flag indicating if node is leader
+
+Example Usage:
+
+node = Server("node1", 8000, is_leader=True)
+
+#### Label Enum
+
+The `Label` enumeration defines all types of messages that nodes can send and receive:
+
+- NEW_LOG_VALUE = 0      : Follower proposes a new log entry to leader
+- APPEND = 1             : Leader requests log append to followers
+- APPEND_ACK = 2         : Acknowledgement from follower for append
+- REJECT = 3             : Follower rejects an append
+- COMMIT = 4             : Leader commits a log entry
+- HEARTBEAT = 5          : Leader heartbeat ping
+- HEARTBEAT_ACK = 6      : Follower responds to heartbeat
+- VOTE = 7               : Request vote for election
+- VOTE_FOR = 8           : Response to vote request
+- NEW_LEADER = 9         : Announces a new leader
+- UPDATE_CHECK = 10      : Follower asks leader for missing log updates
+- UPDATE_SIGNAL = 11     : Leader signals follower to update log
+- UPDATE = 12            : Leader sends missing log entry
+- UPDATE_ACK = 13        : Follower acknowledges update
+- ADD_SERVER = 14        : Proxy instructs nodes to add a new server
+- NEW_SERVER = 15        : New server joins cluster (sent to proxy)
+
+These labels are critical for the Raft protocol implementation, 
+as they ensure proper communication for elections, log replication, and cluster management.

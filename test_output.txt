@@ -1,0 +1,958 @@
+
+
+Proxy Server
+jbs671@tux5:~/CMPT-434> python proxy.py tux5 30001 tux5 30002 tux5 30003 tux5 30004
+
+=== Current Proxy Info ===
+tux5:30001
+
+=== Server Table ===
+Name                 Port       Is Leader 
+---------------------------------------------
+tux5                 30002      Yes       
+tux5                 30003      No        
+tux5                 30004      No        
+---------------------------------------------
+Enter message to send: Proxy got "A" with label NEW_LOG_VALUE from tux5:30003
+Proxy got "A" with label APPEND from tux5:30002
+Proxy got "A" with label APPEND from tux5:30002
+Proxy got "A" with label APPEND_ACK from tux5:30003
+Proxy got "A" with label APPEND_ACK from tux5:30004
+Proxy got "" with label COMMIT from tux5:30002
+Proxy got "" with label COMMIT from tux5:30002
+Proxy got "B" with label NEW_LOG_VALUE from tux5:30003
+Proxy got "B" with label APPEND from tux5:30002
+Proxy got "B" with label APPEND from tux5:30002
+Proxy got "B" with label APPEND_ACK from tux5:30003
+Proxy got "B" with label APPEND_ACK from tux5:30004
+Proxy got "" with label COMMIT from tux5:30002
+Proxy got "" with label COMMIT from tux5:30002
+Proxy got "C" with label NEW_LOG_VALUE from tux5:30003
+Proxy got "C" with label APPEND from tux5:30002
+Proxy got "C" with label APPEND from tux5:30002
+Proxy got "C" with label APPEND_ACK from tux5:30003
+Proxy got "C" with label APPEND_ACK from tux5:30004
+Proxy got "" with label COMMIT from tux5:30002
+Proxy got "" with label COMMIT from tux5:30002
+Proxy got "" with label NEW_SERVER from tux5:30005
+Proxy got "" with label NEW_SERVER from tux5:30005
+Server already registered, ignoring NEW_SERVER
+Proxy got "" with label UPDATE_CHECK from tux5:30005
+Proxy got "" with label UPDATE_SIGNAL from tux5:30002
+Proxy got "" with label UPDATE from tux5:30005
+Proxy got "A" with label UPDATE_ACK from tux5:30002
+Proxy got "" with label UPDATE_CHECK from tux5:30005
+Proxy got "" with label UPDATE_SIGNAL from tux5:30002
+Proxy got "" with label UPDATE from tux5:30005
+Proxy got "B" with label UPDATE_ACK from tux5:30002
+Proxy got "" with label UPDATE_CHECK from tux5:30005
+Proxy got "" with label UPDATE_SIGNAL from tux5:30002
+Proxy got "" with label UPDATE from tux5:30005
+Proxy got "C" with label UPDATE_ACK from tux5:30002
+Proxy got "" with label UPDATE_CHECK from tux5:30005
+Proxy got "" with label UPDATE_SIGNAL from tux5:30002
+Proxy got "" with label UPDATE from tux5:30005
+Proxy got "" with label UPDATE_ACK from tux5:30002
+Proxy got "" with label UPDATE_CHECK from tux5:30005
+Proxy got "" with label NEW_SERVER from tux5:30006
+Proxy got "" with label NEW_SERVER from tux5:30006
+Server already registered, ignoring NEW_SERVER
+Proxy got "" with label UPDATE_CHECK from tux5:30006
+Proxy got "" with label UPDATE_SIGNAL from tux5:30002
+Proxy got "" with label UPDATE from tux5:30006
+Proxy got "A" with label UPDATE_ACK from tux5:30002
+Proxy got "" with label UPDATE_CHECK from tux5:30006
+Proxy got "" with label UPDATE_SIGNAL from tux5:30002
+Proxy got "" with label UPDATE from tux5:30006
+Proxy got "B" with label UPDATE_ACK from tux5:30002
+Proxy got "" with label UPDATE_CHECK from tux5:30006
+Proxy got "" with label UPDATE_SIGNAL from tux5:30002
+Proxy got "" with label UPDATE from tux5:30006
+Proxy got "C" with label UPDATE_ACK from tux5:30002
+Proxy got "" with label UPDATE_CHECK from tux5:30006
+Proxy got "" with label UPDATE_SIGNAL from tux5:30002
+Proxy got "" with label UPDATE from tux5:30006
+Proxy got "" with label UPDATE_ACK from tux5:30002
+Proxy got "" with label UPDATE_CHECK from tux5:30006
+Proxy got "D" with label NEW_LOG_VALUE from tux5:30006
+Proxy got "D" with label APPEND from tux5:30002
+Proxy got "D" with label APPEND from tux5:30002
+Proxy got "D" with label APPEND from tux5:30002
+Proxy got "D" with label APPEND from tux5:30002
+Proxy got "D" with label APPEND_ACK from tux5:30003
+Proxy got "D" with label APPEND_ACK from tux5:30004
+Proxy got "D" with label APPEND_ACK from tux5:30006
+Proxy got "" with label COMMIT from tux5:30002
+Proxy got "" with label COMMIT from tux5:30002
+Proxy got "" with label COMMIT from tux5:30002
+Proxy got "" with label COMMIT from tux5:30002
+Proxy got "E" with label NEW_LOG_VALUE from tux5:30006
+Proxy got "E" with label APPEND from tux5:30002
+Proxy got "E" with label APPEND from tux5:30002
+Proxy got "E" with label APPEND from tux5:30002
+Proxy got "E" with label APPEND from tux5:30002
+Proxy got "E" with label APPEND_ACK from tux5:30003
+Proxy got "E" with label APPEND_ACK from tux5:30004
+Proxy got "E" with label APPEND_ACK from tux5:30006
+Proxy got "" with label COMMIT from tux5:30002
+Proxy got "" with label COMMIT from tux5:30002
+Proxy got "" with label COMMIT from tux5:30002
+Proxy got "" with label COMMIT from tux5:30002
+Proxy got "F" with label NEW_LOG_VALUE from tux5:30006
+Proxy got "F" with label APPEND from tux5:30002
+Proxy got "F" with label APPEND from tux5:30002
+Proxy got "F" with label APPEND from tux5:30002
+Proxy got "F" with label APPEND from tux5:30002
+Proxy got "F" with label APPEND_ACK from tux5:30003
+Proxy got "F" with label APPEND_ACK from tux5:30004
+Proxy got "F" with label APPEND_ACK from tux5:30006
+Proxy got "" with label COMMIT from tux5:30002
+Proxy got "" with label COMMIT from tux5:30002
+Proxy got "" with label COMMIT from tux5:30002
+Proxy got "" with label COMMIT from tux5:30002
+Proxy got "" with label NEW_SERVER from tux5:30005
+Server already registered, ignoring NEW_SERVER
+Proxy got "" with label UPDATE_CHECK from tux5:30005
+Proxy got "" with label UPDATE_SIGNAL from tux5:30002
+Proxy got "" with label UPDATE from tux5:30005
+Proxy got "A" with label UPDATE_ACK from tux5:30002
+Proxy got "" with label UPDATE_CHECK from tux5:30005
+Proxy got "" with label UPDATE_SIGNAL from tux5:30002
+Proxy got "" with label UPDATE from tux5:30005
+Proxy got "B" with label UPDATE_ACK from tux5:30002
+Proxy got "" with label UPDATE_CHECK from tux5:30005
+Proxy got "" with label UPDATE_SIGNAL from tux5:30002
+Proxy got "" with label UPDATE from tux5:30005
+Proxy got "C" with label UPDATE_ACK from tux5:30002
+Proxy got "" with label UPDATE_CHECK from tux5:30005
+Proxy got "" with label UPDATE_SIGNAL from tux5:30002
+Proxy got "" with label UPDATE from tux5:30005
+Proxy got "D" with label UPDATE_ACK from tux5:30002
+Proxy got "" with label UPDATE_CHECK from tux5:30005
+Proxy got "" with label UPDATE_SIGNAL from tux5:30002
+Proxy got "" with label UPDATE from tux5:30005
+Proxy got "E" with label UPDATE_ACK from tux5:30002
+Proxy got "" with label UPDATE_CHECK from tux5:30005
+Proxy got "" with label UPDATE_SIGNAL from tux5:30002
+Proxy got "" with label UPDATE from tux5:30005
+Proxy got "F" with label UPDATE_ACK from tux5:30002
+Proxy got "" with label UPDATE_CHECK from tux5:30005
+Proxy got "" with label UPDATE_SIGNAL from tux5:30002
+Proxy got "" with label UPDATE from tux5:30005
+Proxy got "" with label UPDATE_ACK from tux5:30002
+Proxy got "" with label UPDATE_CHECK from tux5:30005
+Proxy got "" with label VOTE from tux5:30004
+Proxy got "" with label VOTE from tux5:30004
+Proxy got "" with label VOTE from tux5:30004
+Proxy got "" with label VOTE from tux5:30004
+Proxy got "" with label VOTE_FOR from tux5:30003
+Proxy got "" with label VOTE_FOR from tux5:30005
+Proxy got "" with label VOTE_FOR from tux5:30006
+Proxy got "" with label NEW_LEADER from tux5:30004
+Proxy got "" with label NEW_LEADER from tux5:30004
+Proxy got "" with label NEW_LEADER from tux5:30004
+Proxy got "" with label NEW_LEADER from tux5:30004
+Proxy got "" with label VOTE from tux5:30006
+Proxy got "" with label VOTE from tux5:30006
+Proxy got "" with label VOTE from tux5:30006
+Proxy got "" with label VOTE from tux5:30006
+Proxy got "" with label VOTE_FOR from tux5:30003
+Proxy got "" with label VOTE_FOR from tux5:30004
+Proxy got "" with label VOTE_FOR from tux5:30005
+Proxy got "" with label NEW_LEADER from tux5:30006
+Proxy got "" with label NEW_LEADER from tux5:30006
+Proxy got "" with label NEW_LEADER from tux5:30006
+Proxy got "" with label NEW_LEADER from tux5:30006
+Proxy got "" with label VOTE from tux5:30005
+Proxy got "" with label VOTE from tux5:30005
+Proxy got "" with label VOTE from tux5:30005
+Proxy got "" with label VOTE from tux5:30005
+Proxy got "" with label VOTE_FOR from tux5:30003
+Proxy got "" with label VOTE_FOR from tux5:30004
+Proxy got "" with label VOTE_FOR from tux5:30006
+Proxy got "" with label NEW_LEADER from tux5:30005
+Proxy got "" with label NEW_LEADER from tux5:30005
+Proxy got "" with label NEW_LEADER from tux5:30005
+Proxy got "" with label NEW_LEADER from tux5:30005
+Proxy got "" with label NEW_SERVER from tux5:30002
+Server already registered, ignoring NEW_SERVER
+Proxy got "" with label UPDATE_CHECK from tux5:30002
+Proxy got "" with label UPDATE_SIGNAL from tux5:30005
+Proxy got "" with label UPDATE from tux5:30002
+Proxy got "A" with label UPDATE_ACK from tux5:30005
+Proxy got "" with label UPDATE_CHECK from tux5:30002
+Proxy got "" with label UPDATE_SIGNAL from tux5:30005
+Proxy got "" with label UPDATE from tux5:30002
+Proxy got "B" with label UPDATE_ACK from tux5:30005
+Proxy got "" with label UPDATE_CHECK from tux5:30002
+Proxy got "" with label UPDATE_SIGNAL from tux5:30005
+Proxy got "" with label UPDATE from tux5:30002
+Proxy got "C" with label UPDATE_ACK from tux5:30005
+Proxy got "" with label UPDATE_CHECK from tux5:30002
+Proxy got "" with label UPDATE_SIGNAL from tux5:30005
+Proxy got "" with label UPDATE from tux5:30002
+Proxy got "D" with label UPDATE_ACK from tux5:30005
+Proxy got "" with label UPDATE_CHECK from tux5:30002
+Proxy got "" with label UPDATE_SIGNAL from tux5:30005
+Proxy got "" with label UPDATE from tux5:30002
+Proxy got "E" with label UPDATE_ACK from tux5:30005
+Proxy got "" with label UPDATE_CHECK from tux5:30002
+Proxy got "" with label UPDATE_SIGNAL from tux5:30005
+Proxy got "" with label UPDATE from tux5:30002
+Proxy got "F" with label UPDATE_ACK from tux5:30005
+Proxy got "" with label UPDATE_CHECK from tux5:30002
+Proxy got "" with label UPDATE_SIGNAL from tux5:30005
+Proxy got "" with label UPDATE from tux5:30002
+Proxy got "" with label UPDATE_ACK from tux5:30005
+Proxy got "" with label UPDATE_CHECK from tux5:30002
+Proxy got "" with label UPDATE_SIGNAL from tux5:30005
+Proxy got "" with label UPDATE from tux5:30002
+Proxy got "" with label UPDATE_ACK from tux5:30005
+Proxy got "" with label UPDATE_CHECK from tux5:30002
+exit
+jbs671@tux5:~/CMPT-434>
+
+####################################################################################
+####################################################################################
+####################################################################################
+####################################################################################
+
+Initial Leader Server - (exits and then rejoins)
+jbs671@tux5:~/CMPT-434> python raft.py tux5 30001 tux5 30002 1 tux5 30003 tux5 30004
+Leader Node is listening...
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30002
+Leader:         tux5-30002
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30003      No        
+tux5                 30004      No        
+---------------------------------------------
+Enter message to send: 
+========= LOG STATE =========
+Index 0: message:A   appends:3
+============================
+
+
+========= LOG STATE =========
+Index 0: message:A   appends:3
+Index 1: message:B   appends:3
+============================
+
+
+========= LOG STATE =========
+Index 0: message:A   appends:3
+Index 1: message:B   appends:3
+Index 2: message:C   appends:3
+============================
+
+
+========= LOG STATE =========
+Index 0: message:A   appends:3
+Index 1: message:B   appends:3
+Index 2: message:C   appends:3
+Index 3: message:D   appends:4
+============================
+
+
+========= LOG STATE =========
+Index 0: message:A   appends:3
+Index 1: message:B   appends:3
+Index 2: message:C   appends:3
+Index 3: message:D   appends:4
+Index 4: message:E   appends:4
+============================
+
+
+========= LOG STATE =========
+Index 0: message:A   appends:3
+Index 1: message:B   appends:3
+Index 2: message:C   appends:3
+Index 3: message:D   appends:4
+Index 4: message:E   appends:4
+Index 5: message:F   appends:4
+============================
+
+exit
+jbs671@tux5:~/CMPT-434> python raft.py tux5 30001 tux5 30002 0 join
+Follower Node is listening...
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30002
+Leader:         None-None
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+---------------------------------------------
+Enter message to send: Update applied, now a follower
+
+========= LOG STATE =========
+Index 0: message:A 
+============================
+
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30002
+Leader:         tux5-30005
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30003      No        
+tux5                 30004      No        
+tux5                 30005      Yes       
+tux5                 30006      No        
+---------------------------------------------
+Update applied, now a follower
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+============================
+
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30002
+Leader:         tux5-30005
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30003      No        
+tux5                 30004      No        
+tux5                 30005      Yes       
+tux5                 30006      No        
+---------------------------------------------
+Update applied, now a follower
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+============================
+
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30002
+Leader:         tux5-30005
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30003      No        
+tux5                 30004      No        
+tux5                 30005      Yes       
+tux5                 30006      No        
+---------------------------------------------
+Update applied, now a follower
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+Index 3: message:D 
+============================
+
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30002
+Leader:         tux5-30005
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30003      No        
+tux5                 30004      No        
+tux5                 30005      Yes       
+tux5                 30006      No        
+---------------------------------------------
+Update applied, now a follower
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+Index 3: message:D 
+Index 4: message:E 
+============================
+
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30002
+Leader:         tux5-30005
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30003      No        
+tux5                 30004      No        
+tux5                 30005      Yes       
+tux5                 30006      No        
+---------------------------------------------
+Update applied, now a follower
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+Index 3: message:D 
+Index 4: message:E 
+Index 5: message:F 
+============================
+
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30002
+Leader:         tux5-30005
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30003      No        
+tux5                 30004      No        
+tux5                 30005      Yes       
+tux5                 30006      No        
+---------------------------------------------
+Update applied, now a follower
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+Index 3: message:D 
+Index 4: message:E 
+Index 5: message:F 
+============================
+
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30002
+Leader:         tux5-30005
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30003      No        
+tux5                 30004      No        
+tux5                 30005      Yes       
+tux5                 30006      No        
+---------------------------------------------
+Update applied, now a follower
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+Index 3: message:D 
+Index 4: message:E 
+Index 5: message:F 
+============================
+
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30002
+Leader:         tux5-30005
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30003      No        
+tux5                 30004      No        
+tux5                 30005      Yes       
+tux5                 30006      No        
+---------------------------------------------
+log
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+Index 3: message:D 
+Index 4: message:E 
+Index 5: message:F 
+============================
+
+Enter message to send: exit
+jbs671@tux5:~/CMPT-434>
+
+####################################################################################
+####################################################################################
+####################################################################################
+####################################################################################
+
+
+Follower Server 1
+jbs671@tux5:~/CMPT-434> python raft.py tux5 30001 tux5 30003 0 tux5 30002 tux5 30004
+Follower Node is listening...
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30003
+Leader:         tux5-30002
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30002      Yes       
+tux5                 30004      No        
+---------------------------------------------
+Enter message to send: A
+Enter message to send: 
+========= LOG STATE =========
+Index 0: message:A 
+============================
+
+B
+Enter message to send: 
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+============================
+
+C
+Enter message to send: 
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+============================
+
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+Index 3: message:D 
+============================
+
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+Index 3: message:D 
+Index 4: message:E 
+============================
+
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+Index 3: message:D 
+Index 4: message:E 
+Index 5: message:F 
+============================
+
+exit
+
+####################################################################################
+####################################################################################
+####################################################################################
+####################################################################################
+
+
+Follower Server 2
+jbs671@tux5:~/CMPT-434> python raft.py tux5 30001 tux5 30004 0 tux5 30002 tux5 30003
+Follower Node is listening...
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30004
+Leader:         tux5-30002
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30002      Yes       
+tux5                 30003      No        
+---------------------------------------------
+Enter message to send: 
+========= LOG STATE =========
+Index 0: message:A 
+============================
+
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+============================
+
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+============================
+
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+Index 3: message:D 
+============================
+
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+Index 3: message:D 
+Index 4: message:E 
+============================
+
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+Index 3: message:D 
+Index 4: message:E 
+Index 5: message:F 
+============================
+
+Election won, becoming leader!
+exit
+jbs671@tux5:~/CMPT-434>
+
+####################################################################################
+####################################################################################
+####################################################################################
+####################################################################################
+
+Follower Server 3 Joins Network
+jbs671@tux5:~/CMPT-434> python raft.py tux5 30001 tux5 30005 0 join
+Follower Node is listening...
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30005
+Leader:         None-None
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+---------------------------------------------
+Enter message to send: Update applied, now a follower
+
+========= LOG STATE =========
+Index 0: message:A 
+============================
+
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30005
+Leader:         tux5-30002
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30002      Yes       
+tux5                 30003      No        
+tux5                 30004      No        
+tux5                 30006      No        
+---------------------------------------------
+Update applied, now a follower
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+============================
+
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30005
+Leader:         tux5-30002
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30002      Yes       
+tux5                 30003      No        
+tux5                 30004      No        
+tux5                 30006      No        
+---------------------------------------------
+Update applied, now a follower
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+============================
+
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30005
+Leader:         tux5-30002
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30002      Yes       
+tux5                 30003      No        
+tux5                 30004      No        
+tux5                 30006      No        
+---------------------------------------------
+Update applied, now a follower
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+Index 3: message:D 
+============================
+
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30005
+Leader:         tux5-30002
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30002      Yes       
+tux5                 30003      No        
+tux5                 30004      No        
+tux5                 30006      No        
+---------------------------------------------
+Update applied, now a follower
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+Index 3: message:D 
+Index 4: message:E 
+============================
+
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30005
+Leader:         tux5-30002
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30002      Yes       
+tux5                 30003      No        
+tux5                 30004      No        
+tux5                 30006      No        
+---------------------------------------------
+Update applied, now a follower
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+Index 3: message:D 
+Index 4: message:E 
+Index 5: message:F 
+============================
+
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30005
+Leader:         tux5-30002
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30002      Yes       
+tux5                 30003      No        
+tux5                 30004      No        
+tux5                 30006      No        
+---------------------------------------------
+Update applied, now a follower
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+Index 3: message:D 
+Index 4: message:E 
+Index 5: message:F 
+============================
+
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30005
+Leader:         tux5-30002
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30002      Yes       
+tux5                 30003      No        
+tux5                 30004      No        
+tux5                 30006      No        
+---------------------------------------------
+Election won, becoming leader!
+exit
+jbs671@tux5:~/CMPT-434>
+
+####################################################################################
+####################################################################################
+####################################################################################
+####################################################################################
+
+Follower Server 4 Joins Network
+jbs671@tux5:~/CMPT-434> python raft.py tux5 30001 tux5 30006 0 join
+Follower Node is listening...
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30006
+Leader:         None-None
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+---------------------------------------------
+Enter message to send: Update applied, now a follower
+
+========= LOG STATE =========
+Index 0: message:A 
+============================
+
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30006
+Leader:         tux5-30002
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30002      Yes       
+tux5                 30003      No        
+tux5                 30004      No        
+tux5                 30005      No        
+---------------------------------------------
+Update applied, now a follower
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+============================
+
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30006
+Leader:         tux5-30002
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30002      Yes       
+tux5                 30003      No        
+tux5                 30004      No        
+tux5                 30005      No        
+---------------------------------------------
+Update applied, now a follower
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+============================
+
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30006
+Leader:         tux5-30002
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30002      Yes       
+tux5                 30003      No        
+tux5                 30004      No        
+tux5                 30005      No        
+---------------------------------------------
+Update applied, now a follower
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+============================
+
+
+=== Current Node Info ===
+Proxy:          tux5-30001
+Current Node:   tux5-30006
+Leader:         tux5-30002
+
+=== Server Table ===
+Name                 Port       Leader    
+---------------------------------------------
+tux5                 30002      Yes       
+tux5                 30003      No        
+tux5                 30004      No        
+tux5                 30005      No        
+---------------------------------------------
+log
+
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+============================
+
+Enter message to send: D
+Enter message to send: 
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+Index 3: message:D 
+============================
+
+E
+Enter message to send: 
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+Index 3: message:D 
+Index 4: message:E 
+============================
+
+F
+Enter message to send: 
+========= LOG STATE =========
+Index 0: message:A 
+Index 1: message:B 
+Index 2: message:C 
+Index 3: message:D 
+Index 4: message:E 
+Index 5: message:F 
+============================
+
+Election won, becoming leader!
+exit
+jbs671@tux5:~/CMPT-434> 
