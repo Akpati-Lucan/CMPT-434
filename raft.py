@@ -211,6 +211,10 @@ def keyboard_thread():
             keepRunning = False
             break
 
+        if user_input == "log":
+            print_log()
+            continue
+
         if is_leader:
             for node in table_of_nodes:
                 msg = Message(Label.APPEND, seq_number_of_log, node_name, node_port, node.name, node.port, user_input, 0)
@@ -363,6 +367,8 @@ def main_server():
             print("Update applied, now a follower")
             print_log()
             print_server_table()
+            msg = Message(Label.UPDATE_CHECK, seq_number_of_log, node_name, node_port, leader_name, leader_port, "", 0, term)
+            outgoing_messages.put(msg)
 
         elif msg.label == Label.ADD_SERVER:
             table_of_nodes.append(

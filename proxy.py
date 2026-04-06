@@ -78,6 +78,17 @@ def receiver_thread():
         except Exception as e:
             print("Receiver error:", e)
 
+
+def keyboard_thread():
+    global keepRunning
+
+    while keepRunning:
+        user_input = input("Enter message to send: ")
+
+        if user_input == "exit":
+            keepRunning = False
+            break
+
 def main_server():
     global keepRunning
     while keepRunning:
@@ -87,11 +98,8 @@ def main_server():
         except Empty:
             continue  # lets loop re-check keepRunning
 
-        print(f"Proxy got \"{msg.msg}\" with label {msg.label.name} from {msg.source_name}:{msg.source_port}")
 
-        if msg.msg == "exit":
-            keepRunning = False
-            break
+        #print(f"Proxy got \"{msg.msg}\" with label {msg.label.name} from {msg.source_name}:{msg.source_port}")
 
         if msg.label == Label.NEW_SERVER:
             new_server = Server(msg.source_name, msg.source_port)
@@ -176,11 +184,13 @@ def main():
     sender = threading.Thread(target=sender_thread, args=())
     receiver = threading.Thread(target=receiver_thread, args=())
     server = threading.Thread(target=main_server, args=())
+    keyboard = threading.Thread(target=keyboard_thread, args=())
 
     # Start threads
     sender.start()
     receiver.start()
     server.start()
+    keyboard.start()
 
 if __name__ == "__main__":
     main()
