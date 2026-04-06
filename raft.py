@@ -203,14 +203,12 @@ def append_handler_thread(seq_number, message):
 def keyboard_thread():
     global seq_number_of_log
     global keepRunning
-    global node_socket
 
     while keepRunning:
         user_input = input("Enter message to send: ")
 
         if user_input == "exit":
             keepRunning = False
-            node_socket.close()
             break
 
         if is_leader:
@@ -341,7 +339,6 @@ def main_server():
             # Follower initiates update sequence
             leader_name = msg.source_name
             leader_port = msg.source_port
-            is_leader = False
             msg = Message(Label.UPDATE, seq_number_of_log, node_name, node_port,
                                   leader_name, leader_port,"",0)
             outgoing_messages.put(msg)
@@ -357,13 +354,16 @@ def main_server():
         elif msg.label == Label.UPDATE_ACK:
             # Follower applies update
             log[msg.seq_number] =  msg.msg  # <-- store log entry
-
+            for node in table_of_nodes:
+                if node.name == leader_name and node.port == leader_port:
+                    node.is_leader = True
+                else:
+                    node.is_leader = False
+            is_leader = False
             seq_number_of_log += 1
-
-            # # confirm again
-            # msg = Message(Label.UPDATE_CHECK, seq_number_of_log, node_name, node_port,
-            #                   leader_name,leader_port,"",0)
-            # outgoing_messages.put(msg)
+            print("Update applied, now a follower")
+            print_log()
+            print_server_table()
 
         elif msg.label == Label.ADD_SERVER:
             table_of_nodes.append(
