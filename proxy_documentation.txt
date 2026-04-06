@@ -1,0 +1,379 @@
+# Name: Lucan Akpati
+# NSID: jbs671
+# Student Number: 11331253
+
+# Name: Samuel Olukuewu
+# NSID: nds091
+# Student Number: 11323380
+
+####################################################################################
+# Global Variables
+####################################################################################
+
+keepRunning = True
+"""
+Global flag to control whether threads should continue running.
+
+Used by:
+- sender_thread
+- receiver_thread
+- main_proxy_server
+
+Notes:
+- Setting keepRunning = False will signal all threads to stop gracefully.
+"""
+
+electing = False
+"""
+Global flag to indicate if an election is in progress.
+
+Used by:
+- election handling (if proxy implements leader election tracking)
+"""
+
+hostname = 'localhost'
+"""
+Hostname for the proxy node, default is localhost.
+
+Used by:
+- proxy_socket binding
+"""
+
+proxy_name = None
+"""
+Name of the proxy node.
+
+Used by:
+- Command-line parsing
+- Message routing
+"""
+
+proxy_port = None
+"""
+UDP port number for the proxy node.
+
+Used by:
+- proxy_socket binding
+- Message routing
+"""
+
+proxy_socket = None
+"""
+UDP socket object for the proxy node.
+
+Used by:
+- sender_thread
+- receiver_thread
+
+Notes:
+- Must be initialized with setup_udp_socket() before threads are started.
+"""
+
+outgoing_messages = Queue()
+"""
+Thread-safe queue storing messages to be sent to servers.
+
+Used by:
+- sender_thread (consumes messages)
+- main_proxy_server (enqueues messages)
+"""
+
+incoming_messages = Queue()
+"""
+Thread-safe queue storing messages received from servers.
+
+Used by:
+- receiver_thread (produces messages)
+- main_proxy_server (consumes messages)
+"""
+
+term = 0
+"""
+Current Raft term for the cluster.
+
+Used by:
+- Messages that include term for leader/follower coordination
+"""
+
+table_of_nodes = []
+"""
+List of Server objects representing all nodes in the cluster.
+
+Used by:
+- main_proxy_server
+- join handling
+- message forwarding
+"""
+
+MAX_SERVERS = 20
+"""
+Maximum number of servers that can be tracked by the proxy.
+
+Used by:
+- parse_node_list or join handling to prevent overflow
+"""
+
+def print_server_table():
+    """
+    Prints the current state of the proxy and its server table.
+
+    Behavior:
+    ---------
+    1. Displays proxy node information (name and port).
+    2. Iterates over table_of_nodes and prints each server:
+        - Server name
+        - Server port
+        - Leader status (Yes/No)
+    3. Formats output with headers and separators for readability.
+
+    Globals Used:
+    -------------
+    - table_of_nodes: list of Server objects tracked by the proxy
+    - proxy_name, proxy_port: identity of the proxy node
+
+    Notes:
+    ------
+    - Does not modify any global variables.
+    - Can be called anytime for monitoring cluster state.
+    - Leader status is based on the is_leader flag in each Server object.
+
+    Returns:
+    --------
+    None
+    """
+
+def sender_thread():
+    """
+    Continuously sends messages from the outgoing_messages queue to servers via UDP.
+
+    Behavior:
+    ---------
+    1. Runs in a loop as long as keepRunning is True.
+    2. Retrieves a message from outgoing_messages queue with a 0.5-second timeout.
+    3. Serializes the message using pickle.
+    4. Sends the serialized message via proxy_socket to the destination server's port.
+    5. If queue is empty, loops again.
+    6. Catches and prints exceptions for debugging.
+
+    Globals Used:
+    -------------
+    - outgoing_messages: Queue containing messages to be sent
+    - proxy_socket: UDP socket for sending messages
+    - hostname: hostname to send messages to (usually localhost)
+    - keepRunning: flag to stop thread
+
+    Notes:
+    ------
+    - This thread is designed to run continuously in the background.
+    - Handles one message at a time from the queue.
+    - Non-blocking due to timeout on queue.get().
+    - Does not modify shared data other than dequeuing messages.
+
+    Returns:
+    --------
+    None
+    """
+
+def receiver_thread():
+    """
+    Continuously receives messages from servers via UDP and enqueues them for processing.
+
+    Behavior:
+    ---------
+    1. Runs in a loop as long as keepRunning is True.
+    2. Waits to receive data on proxy_socket (UDP socket) with a 2048-byte buffer.
+    3. Deserializes the received message using pickle.
+    4. Enqueues the message into incoming_messages for processing by main proxy logic.
+    5. Handles socket timeouts and loops to re-check keepRunning flag.
+    6. Catches and prints exceptions for debugging.
+
+    Globals Used:
+    -------------
+    - proxy_socket: UDP socket for receiving messages
+    - incoming_messages: Queue for storing received messages
+    - keepRunning: flag to stop thread
+
+    Notes:
+    ------
+    - This thread is non-blocking due to socket timeout.
+    - Designed to run in parallel with sender_thread and main_proxy_server.
+    - Messages should be consumed from incoming_messages elsewhere in the proxy logic.
+
+    Returns:
+    --------
+    None
+    """
+
+def keyboard_thread():
+    """
+    Handles user input for the proxy and triggers local actions.
+
+    Behavior:
+    ---------
+    1. Runs in a loop as long as keepRunning is True.
+    2. Prompts the user for input using standard input.
+    3. Recognized commands:
+        - "exit": sets keepRunning to False to signal all threads to stop.
+        - "table": prints the current server table via print_server_table().
+    4. Any other input is ignored in the current implementation (can be extended to send messages).
+
+    Globals Used:
+    -------------
+    - keepRunning: flag to stop all threads when user types "exit"
+
+    Notes:
+    ------
+    - Blocks on input() and runs independently of sender and receiver threads.
+    - Provides a simple CLI interface to monitor or control the proxy.
+    - Can be extended to enqueue messages into outgoing_messages for broadcasting.
+
+    Returns:
+    --------
+    None
+    """
+
+def main_server():
+    """
+    Main server loop for the proxy that processes incoming messages from all servers.
+
+    Behavior:
+    ---------
+    1. Runs in a loop as long as keepRunning is True.
+    2. Retrieves messages from the incoming_messages queue with a 0.5-second timeout.
+    3. Logs received messages to the console, except for HEARTBEAT and HEARTBEAT_ACK messages.
+    4. Handles NEW_SERVER messages:
+        - Checks for duplicate servers. If already registered, ignores but informs the new server about existing nodes.
+        - If new, adds the server to table_of_nodes.
+        - Notifies all existing servers about the new server (ADD_SERVER message).
+        - Notifies the new server about all existing servers (ADD_SERVER message).
+    5. Handles NEW_LEADER messages:
+        - Updates the is_leader flag for all servers.
+        - Marks the new leader in table_of_nodes.
+        - Broadcasts the message to all nodes via outgoing_messages.
+    6. For all other messages, forwards them via outgoing_messages.
+
+    Globals Used:
+    -------------
+    - keepRunning: flag to stop the loop and threads
+    - incoming_messages: Queue of messages received from servers
+    - outgoing_messages: Queue of messages to be sent to servers
+    - table_of_nodes: list of Server objects tracked by the proxy
+    - term: current Raft term, used in ADD_SERVER messages
+
+    Notes:
+    ------
+    - Ensures that duplicate servers are not added to table_of_nodes.
+    - Handles consistent leader tracking and broadcasts leader updates.
+    - Designed to run as a dedicated thread in the proxy.
+    - ADD_SERVER messages maintain cluster-wide awareness of all nodes.
+
+    Returns:
+    --------
+    None
+    """
+
+def setup_udp_socket():
+    """
+    Initializes and binds a UDP socket for the proxy.
+
+    Behavior:
+    ---------
+    1. Creates a UDP socket using IPv4 (AF_INET) and SOCK_DGRAM.
+    2. Binds the socket to the proxy's hostname and port.
+    3. Sets a 0.5-second timeout on the socket to allow non-blocking operations
+       (so the receiver thread can periodically check keepRunning).
+
+    Globals Used:
+    -------------
+    - proxy_socket: the UDP socket used by the proxy to send/receive messages
+    - hostname: hostname for binding the socket (usually 'localhost')
+    - proxy_port: port for binding the socket
+
+    Notes:
+    ------
+    - Designed for use in a multi-threaded proxy with separate sender and receiver threads.
+    - Timeout ensures the receiver thread can gracefully exit when keepRunning is False.
+
+    Returns:
+    --------
+    None
+    """
+
+def parse_command_line_arguments():
+    """
+    Parses command-line arguments for the proxy and initializes the server table.
+
+    Behavior:
+    ---------
+    1. Requires at least 5 arguments: script name, proxy_name, proxy_port, leader_name, leader_port.
+    2. Extracts proxy_name and proxy_port.
+    3. Extracts leader_name and leader_port, adds the leader to table_of_nodes with is_leader=True.
+    4. Processes any remaining server arguments in pairs (hostname, port) and adds them to table_of_nodes.
+    5. Validates argument count and maximum server limits.
+
+    Globals Used:
+    -------------
+    - proxy_name: hostname of the proxy
+    - proxy_port: port number of the proxy
+    - table_of_nodes: list of Server objects (leader + other servers)
+    - MAX_SERVERS: maximum allowed servers to prevent overflow
+
+    Exceptions:
+    -----------
+    - Prints usage and exits if fewer than 5 arguments are provided.
+    - Prints error and exits if server arguments are not in pairs.
+    - Stops adding servers if maximum allowed servers are reached.
+
+    Notes:
+    ------
+    - Ensures the proxy always knows the initial leader and optionally other servers.
+    - Server table is later used for broadcasting messages and cluster coordination.
+
+    Returns:
+    --------
+    None
+    """
+
+def main():
+    """
+    Entry point for the proxy program. Initializes configuration, server table,
+    UDP socket, and starts all necessary threads for proxy operation.
+
+    Behavior:
+    ---------
+    1. Parses command-line arguments to set up proxy_name, proxy_port, and initial server table.
+    2. Prints the current server table to the console.
+    3. Sets up a UDP socket for sending/receiving messages.
+    4. Creates and starts four main threads:
+        - sender_thread: sends messages from outgoing_messages queue to servers.
+        - receiver_thread: receives messages from servers and enqueues them to incoming_messages.
+        - main_server: processes incoming messages, handles NEW_SERVER, NEW_LEADER, and broadcasts.
+        - keyboard_thread: handles local user input (e.g., "table" or "exit").
+    5. Threads run concurrently to maintain cluster communication and CLI interaction.
+
+    Globals Used:
+    -------------
+    - table_of_nodes: list of Server objects to broadcast messages and maintain cluster state
+    - proxy_socket: UDP socket used for sending/receiving messages
+    - keepRunning: flag used to signal threads to stop
+    - hostname: hostname for socket binding (usually 'localhost')
+    - proxy_name, proxy_port: identity of this proxy node
+    - outgoing_messages, incoming_messages: thread-safe queues for inter-thread communication
+
+    Concurrency:
+    ------------
+    - Threads run concurrently and communicate via thread-safe queues.
+    - sender_thread and receiver_thread handle network I/O.
+    - main_server handles message processing and cluster coordination.
+    - keyboard_thread allows the user to interact with the proxy without blocking network communication.
+
+    Notes:
+    ------
+    - Designed for a multi-threaded proxy in a Raft-style distributed system.
+    - Proper synchronization is ensured by using queues for all inter-thread message passing.
+    - Keyboard commands like "exit" can safely stop the system.
+
+    Returns:
+    --------
+    None
+    """

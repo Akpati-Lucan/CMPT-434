@@ -1,0 +1,769 @@
+# Name: Lucan Akpati
+# NSID: jbs671
+# Student Number: 11331253
+
+# Name: Samuel Olukuewu
+# NSID: nds091
+# Student Number: 11323380
+
+Global State and Initialization
+
+Defines all shared global variables, communication structures, and timing
+parameters used throughout the Raft-based distributed system.
+
+This section is critical for maintaining cluster state, coordinating threads,
+and enabling communication between nodes.
+
+Behavior:
+---------
+1. Initializes global flags used to control thread execution and election state.
+2. Stores node identity, proxy information, and leader tracking variables.
+3. Creates thread-safe queues for inter-thread communication.
+4. Defines Raft-specific state such as term, votes, and log replication data.
+5. Configures randomized timeouts for heartbeat and election mechanisms.
+6. Maintains cluster membership and log tracking structures.
+7. Declares thread references for election, heartbeat, and append handling.
+
+Globals Used:
+-------------
+Control Flags:
+- keepRunning: controls shutdown of all threads
+- electing: indicates if an election is currently in progress
+
+Node Identity:
+- hostname: default hostname (localhost)
+- node_name, node_port: current node identity
+- proxy_name, proxy_port: proxy connection details
+- leader_name, leader_port: current leader identity
+
+Networking:
+- node_socket: UDP socket for communication
+- outgoing_messages: queue for messages to be sent
+- incoming_messages: queue for received messages
+
+Election State:
+- number_of_votes: votes received in current term
+- term: current election term
+- voted: whether this node has voted in current term
+
+Timing:
+- heartbeat_timeout: randomized timeout before expecting heartbeat
+- election_timeout: timeout before starting election
+- append_timeout: delay between log replication attempts
+
+Leader State:
+- heartbeat_ack: tracks heartbeat acknowledgements
+- is_leader: indicates if this node is leader
+- seq_number_of_log: current log sequence number
+
+Cluster State:
+- table_of_nodes: list of known servers
+- Total_nodes: total number of nodes in cluster
+- MAX_SERVERS: maximum allowed nodes
+
+Log Replication:
+- log: fixed-size array storing log entries
+- log_append_tracker: tracks replication status of log entries
+
+Thread References:
+- election: thread handling leader election
+- heartbeat: thread sending periodic heartbeats
+- append_handler: thread managing log replication
+
+Join State:
+- has_joined: indicates if node joined an existing cluster
+
+Concurrency:
+------------
+- These variables are shared across multiple threads.
+- Thread-safe queues (Queue) are used to avoid race conditions in messaging.
+- Direct access to globals requires careful synchronization to prevent inconsistencies.
+
+Notes:
+------
+- Threads must only be started once; restarting requires creating new thread objects.
+- Randomized timeouts help prevent election collisions and split votes.
+- Nodes should only declare leadership at startup.
+- Nodes rejoining the system must use the "join" mechanism instead of becoming leader.
+
+Returns:
+--------
+None
+
+def print_server_table():
+    """
+    Displays the current node configuration and the known server table.
+
+    This function prints formatted information about:
+    - The proxy connection
+    - The current node
+    - The known leader
+    - All servers in the cluster with their leader status
+
+    Behavior:
+    ---------
+    1. Prints basic node information including proxy, current node, and leader.
+    2. Iterates through the table_of_nodes list.
+    3. Displays each server's:
+        - Name
+        - Port
+        - Leader status (Yes/No)
+    4. Formats output into a readable table for debugging and monitoring.
+
+    Globals Used:
+    -------------
+    - table_of_nodes: list of all known servers in the cluster
+    - node_name, node_port: identity of current node
+    - proxy_name, proxy_port: proxy connection details
+    - leader_name, leader_port: current leader information
+
+    Concurrency:
+    ------------
+    - Read-only access to shared global variables.
+    - Safe to call from any thread for debugging purposes.
+    - Output may interleave with other threads printing to console.
+
+    Notes:
+    ------
+    - Intended primarily for debugging and visualization.
+    - Leader status is determined by each Server object's is_leader flag.
+    - Output formatting assumes consistent structure of Server objects.
+
+    Returns:
+    --------
+    None
+    """
+
+def print_log():
+    """
+    Displays the current state of the replicated log.
+
+    This function prints all non-empty log entries in order,
+    showing different levels of detail depending on whether
+    the current node is the leader or a follower.
+
+    Behavior:
+    ---------
+    1. Iterates through the log array.
+    2. Skips empty entries ("" values).
+    3. If the node is the leader:
+        - Prints log index, message content, and append count.
+    4. If the node is a follower:
+        - Prints only log index and message content.
+    5. Uses log_append_tracker to show replication progress (leader only).
+
+    Globals Used:
+    -------------
+    - log: array storing log entries
+    - log_append_tracker: tracks number of successful appends per entry
+    - is_leader: determines output format (leader vs follower)
+
+    Concurrency:
+    ------------
+    - Read-only access to shared log structures.
+    - May be called concurrently with log updates.
+    - Output may reflect intermediate states if replication is in progress.
+
+    Notes:
+    ------
+    - Log size is fixed; unused entries are represented as empty strings.
+    - Leader provides additional debugging insight via append counts.
+    - Useful for verifying consistency across nodes.
+
+    Returns:
+    --------
+    None
+    """
+
+def heartbeat_thread():
+    """
+    Monitors leader health and triggers elections when necessary.
+
+    This thread is responsible for maintaining cluster stability by:
+    - Sending heartbeat messages to the leader (if follower)
+    - Detecting leader failure
+    - Initiating elections when heartbeats are not acknowledged
+
+    Behavior:
+    ---------
+    1. Runs continuously while keepRunning is True.
+    2. If the node is NOT the leader:
+        - Retrieves the current leader using get_leader().
+        - If a leader exists:
+            - Sends a HEARTBEAT message to the leader.
+            - Waits for a heartbeat acknowledgement.
+            - If no acknowledgement is received within heartbeat_timeout:
+                - Starts an election (if not already in progress).
+        - If no leader is known:
+            - Immediately starts an election (if not already in progress).
+    3. If the node IS the leader:
+        - Sleeps for the heartbeat timeout interval.
+        - (Leader heartbeat sending may be handled elsewhere.)
+
+    Globals Used:
+    -------------
+    - keepRunning: controls thread execution
+    - is_leader: determines node role
+    - leader_name, leader_port: current leader identity
+    - node_name, node_port: current node identity
+    - outgoing_messages: queue for sending messages
+    - heartbeat_ack: tracks heartbeat acknowledgement status
+    - heartbeat_timeout: timeout for heartbeat responses
+    - electing: indicates if an election is in progress
+    - election: thread reference for election handling
+    - term: current election term
+
+    Concurrency:
+    ------------
+    - Runs as a dedicated background thread.
+    - Communicates with other threads via outgoing_messages queue.
+    - May spawn election_thread when leader failure is detected.
+    - Relies on shared global flags (electing, heartbeat_ack).
+
+    Notes:
+    ------
+    - Randomized heartbeat_timeout helps avoid synchronized failures.
+    - Election is only triggered if no heartbeat acknowledgement is received.
+    - Multiple elections are prevented using the electing flag.
+
+    Returns:
+    --------
+    None
+    """
+def election_thread():
+    """
+    Conducts a leader election using a simplified Raft voting mechanism.
+
+    This thread is responsible for:
+    - Initiating a new election term
+    - Requesting votes from other nodes
+    - Determining if this node becomes the leader
+
+    Behavior:
+    ---------
+    1. Increments the current term.
+    2. Votes for itself by incrementing number_of_votes.
+    3. Calculates the majority threshold.
+    4. If not currently electing, exits early.
+    5. Sends VOTE requests to all other nodes in the cluster.
+    6. Waits for responses (based on election_timeout).
+    7. If votes received >= majority:
+        - Declares itself as leader.
+        - Updates leader_name and leader_port.
+        - Broadcasts NEW_LEADER message to all nodes.
+    8. Resets election state variables after completion.
+
+    Globals Used:
+    -------------
+    - number_of_votes: votes received during election
+    - is_leader: updated if election is won
+    - term: incremented for new election round
+    - table_of_nodes: list of all servers in cluster
+    - node_name, node_port: current node identity
+    - leader_name, leader_port: updated upon winning
+    - outgoing_messages: queue for sending messages
+    - election_timeout: wait time for vote responses
+    - electing: indicates election state
+
+    Concurrency:
+    ------------
+    - Runs as a separate thread when triggered by heartbeat_thread.
+    - Sends messages via outgoing_messages queue.
+    - Relies on shared global variables for vote counting.
+    - Potential race conditions may occur if multiple elections overlap.
+
+    Notes:
+    ------
+    - This implementation assumes votes are counted externally (e.g., receiver thread).
+    - Majority is calculated as (N // 2) + 1.
+    - number_of_votes is reset after election completes.
+    - electing flag prevents concurrent elections.
+
+    Returns:
+    --------
+    None
+    """
+
+def append_handler_thread(seq_number, message):
+    """
+    Handles log replication acknowledgements and determines commit success.
+
+    This thread is responsible for coordinating the commit phase of a log entry
+    after APPEND messages have been sent to followers.
+
+    Behavior:
+    ---------
+    1. Increments the append tracker for the given sequence number.
+    2. Waits for a short duration (append_timeout) to allow acknowledgements.
+    3. Checks if a majority of nodes have acknowledged the append.
+    4. If majority is reached:
+        - Sends COMMIT messages to all nodes.
+        - Writes the message to the log.
+        - Increments the global log sequence number.
+        - Prints updated log state.
+    5. If majority is NOT reached:
+        - Sends REJECT messages to all nodes.
+        - Resets the append tracker for this sequence number.
+        - Prints updated log state.
+
+    Parameters:
+    -----------
+    - seq_number: index of the log entry being processed
+    - message: the message content to be committed
+
+    Globals Used:
+    -------------
+    - log_append_tracker: tracks number of acknowledgements per log entry
+    - seq_number_of_log: global log index counter
+    - table_of_nodes: list of all servers in the cluster
+    - outgoing_messages: queue for sending messages
+    - log: array storing committed log entries
+    - append_timeout: delay to wait for acknowledgements
+    - node_name, node_port: identity of current node
+    - term: current election term
+
+    Concurrency:
+    ------------
+    - Runs as a separate thread spawned by keyboard_thread.
+    - Uses shared global structures (log, log_append_tracker).
+    - Blocking behavior (via join in caller) ensures sequential commits.
+    - Potential race conditions if multiple append threads run concurrently.
+
+    Notes:
+    ------
+    - Majority is calculated as len(table_of_nodes) / 2.
+    - This implementation assumes acknowledgements are tracked externally.
+    - Resetting tracker on failure prevents stale counts.
+    - Blocking join ensures only one append is processed at a time.
+
+    Returns:
+    --------
+    None
+    """
+
+def keyboard_thread():
+    """
+    Handles user input and dispatches messages within the distributed system.
+
+    This thread continuously reads user input from the command line and
+    converts it into appropriate Raft messages depending on whether the
+    node is a leader or follower.
+
+    Behavior:
+    ---------
+    1. Continuously prompts the user for input.
+    2. If input is "exit":
+        - Stops execution by setting keepRunning to False.
+    3. If input is "log":
+        - Displays the current log state.
+    4. If input is "table":
+        - Displays the current server table.
+    5. If the node is the leader:
+        - Sends APPEND messages to all nodes.
+        - Spawns append_handler_thread to handle commit logic.
+        - Blocks until append handling completes (join).
+    6. If the node is a follower:
+        - Sends NEW_LOG_VALUE message to the leader.
+
+    Globals Used:
+    -------------
+    - keepRunning: controls thread execution
+    - is_leader: determines node role
+    - seq_number_of_log: log sequence number
+    - table_of_nodes: list of servers in cluster
+    - outgoing_messages: queue for sending messages
+    - leader_name, leader_port: leader node address
+
+    Concurrency:
+    ------------
+    - Runs as a dedicated thread with blocking input().
+    - Interacts with sender_thread via outgoing_messages queue.
+    - Spawns append_handler_thread for log replication.
+    - Uses join() to enforce sequential processing of log entries.
+
+    Notes:
+    ------
+    - Blocking input ensures continuous user interaction.
+    - Only the leader directly appends to the log.
+    - Followers forward client requests to the leader.
+    - Commands "log" and "table" are for debugging purposes.
+
+    Returns:
+    --------
+    None
+    """
+
+def sender_thread():
+    """
+    Sends messages from the outgoing queue to the cluster via the proxy.
+
+    This thread continuously retrieves messages from the outgoing_messages queue,
+    serializes them using pickle, and sends them over the UDP socket to the proxy.
+
+    Behavior:
+    ---------
+    1. Runs in a loop while keepRunning is True.
+    2. Retrieves a message from outgoing_messages with a 0.5-second timeout.
+    3. Serializes the message using pickle.
+    4. Sends the serialized message to the proxy (hostname, proxy_port).
+    5. Handles queue.Empty exceptions by looping without sending.
+    6. Prints any other exceptions encountered during send.
+
+    Globals Used:
+    -------------
+    - keepRunning: controls thread execution
+    - outgoing_messages: queue of messages to send
+    - node_socket: UDP socket for sending messages
+    - hostname, proxy_port: destination proxy address
+
+    Concurrency:
+    ------------
+    - Runs as a dedicated thread.
+    - Non-blocking due to timeout; interacts safely with other threads via queue.
+    - Exceptions are caught to prevent thread termination.
+
+    Notes:
+    ------
+    - Messages are serialized for network transport.
+    - The thread does not guarantee delivery (UDP is used).
+    - Proper shutdown requires setting keepRunning to False.
+
+    Returns:
+    --------
+    None
+    """
+
+def receiver_thread():
+    """
+    Receives messages from the network and places them into the incoming queue.
+
+    This thread listens on the UDP socket for incoming messages, deserializes them,
+    and enqueues them into incoming_messages for processing by other threads.
+
+    Behavior:
+    ---------
+    1. Runs in a loop while keepRunning is True.
+    2. Receives data from the UDP socket (buffer size 2048 bytes).
+    3. Deserializes the data using pickle to reconstruct the Message object.
+    4. Places the Message object into incoming_messages queue.
+    5. Handles socket.timeout by looping again to check keepRunning.
+    6. Prints any other exceptions encountered during receive.
+
+    Globals Used:
+    -------------
+    - keepRunning: controls thread execution
+    - incoming_messages: queue for received messages
+    - node_socket: UDP socket for receiving messages
+
+    Concurrency:
+    ------------
+    - Runs as a dedicated background thread.
+    - Thread-safe queue ensures safe communication with message processing threads.
+    - Timeout prevents indefinite blocking, allowing graceful shutdown.
+
+    Notes:
+    ------
+    - Messages are received in a non-blocking, continuous loop.
+    - The system relies on queues for decoupling network I/O from processing logic.
+    - UDP does not guarantee delivery or ordering; message handling threads must handle this.
+
+    Returns:
+    --------
+    None
+    """
+
+def main_server():
+    """
+    Processes all incoming messages and coordinates state changes for the Raft node.
+
+    This thread is the core message-processing loop of a Raft node, handling
+    both leader and follower responsibilities. It continuously monitors the
+    incoming_messages queue, interprets messages based on their Label type,
+    and performs the appropriate actions including log replication, elections,
+    heartbeats, and cluster updates.
+
+    Behavior:
+    ---------
+    1. Runs continuously while keepRunning is True.
+    2. Retrieves messages from incoming_messages queue with a 0.5-second timeout.
+    3. Processes messages according to their Label:
+        - NEW_LOG_VALUE: Leader appends value to logs via append_handler_thread.
+        - APPEND: Follower appends log entry and sends APPEND_ACK.
+        - APPEND_ACK: Leader increments log append tracker.
+        - COMMIT: Updates seq_number_of_log and prints log.
+        - REJECT: Resets log entry and prints log.
+        - HEARTBEAT: Sends HEARTBEAT_ACK to leader.
+        - HEARTBEAT_ACK: Sets heartbeat_ack to True.
+        - VOTE: Determines whether to grant vote and sends VOTE_FOR.
+        - VOTE_FOR: Updates number_of_votes if vote granted.
+        - NEW_LEADER: Updates leader in table_of_nodes and stops election.
+        - UPDATE_CHECK / UPDATE_SIGNAL / UPDATE / UPDATE_ACK: Handles follower log updates.
+        - ADD_SERVER: Adds a new server to table_of_nodes if not already present.
+
+    Globals Used:
+    -------------
+    - seq_number_of_log: current log index
+    - heartbeat_ack: tracks heartbeat acknowledgment
+    - is_leader: node role
+    - number_of_votes: votes received during election
+    - electing: flag indicating election in progress
+    - term: current Raft term
+    - leader_name, leader_port: current leader identity
+    - table_of_nodes: list of all known servers
+    - outgoing_messages: queue for sending messages
+    - incoming_messages: queue for receiving messages
+    - log, log_append_tracker: log entries and replication tracker
+    - node_name, node_port: current node identity
+
+    Concurrency:
+    ------------
+    - Runs as a dedicated thread.
+    - Interacts with sender_thread and append_handler_thread via queues.
+    - Uses shared globals; multiple threads may update leader and log state.
+    - Blocking queue operations prevent busy-waiting.
+
+    Notes:
+    ------
+    - Ensures Raft properties such as leader-driven log replication,
+      election handling, and majority-based commit.
+    - Leader-only operations include APPEND, COMMIT, and UPDATE signals.
+    - Followers forward messages and maintain consistency with the leader.
+    - ADD_SERVER prevents duplicate servers by checking existing entries.
+    - Handles cluster membership, log updates, and election responses dynamically.
+
+    Returns:
+    --------
+    None
+    """
+
+def setup_udp_socket():
+    """
+    Initializes the UDP socket for the current node.
+
+    This function creates a UDP socket, binds it to the node's hostname and port,
+    and sets a timeout for non-blocking message operations.
+
+    Behavior:
+    ---------
+    1. Creates a new UDP socket (IPv4, datagram).
+    2. Binds the socket to the node's hostname and node_port.
+    3. Sets a timeout of 0.5 seconds to prevent blocking indefinitely on recv.
+
+    Globals Used:
+    -------------
+    - node_socket: stores the created socket object
+    - hostname: IP or hostname for this node (usually 'localhost')
+    - node_port: UDP port for this node to bind
+
+    Concurrency:
+    ------------
+    - Thread-safe as long as the socket is not accessed before initialization.
+    - Receiver and sender threads use this socket for message transport.
+
+    Notes:
+    ------
+    - Using a timeout allows receiver threads to periodically check keepRunning.
+    - Socket uses UDP; message delivery and ordering are not guaranteed.
+    - Must be called before starting sender_thread and receiver_thread.
+
+    Returns:
+    --------
+    None
+    """
+
+def get_leader():
+    """
+    Retrieves the current leader's identity from the server table.
+
+    Behavior:
+    ---------
+    1. Iterates through table_of_nodes.
+    2. Returns the name and port of the node marked as leader (is_leader=True).
+    3. If no leader exists, returns (None, None).
+
+    Globals Used:
+    -------------
+    - table_of_nodes: list of all servers in the cluster
+
+    Concurrency:
+    ------------
+    - Can be called safely by multiple threads as it only reads shared data.
+    - Relies on is_leader flags being correctly updated by main_server or election threads.
+
+    Notes:
+    ------
+    - Does not initiate election; only returns current known leader.
+    - Used by heartbeat_thread and join_server to identify leader.
+
+    Returns:
+    --------
+    tuple:
+        - leader_name (str) or None
+        - leader_port (int) or None
+    """
+
+def join_server():
+    """
+    Handles a node joining an existing Raft cluster.
+
+    Behavior:
+    ---------
+    1. Sends a NEW_SERVER message to the proxy to announce this node.
+    2. Loops until a leader is known (polls get_leader every 0.5 seconds).
+    3. Once a leader is found, sends an UPDATE_CHECK message to synchronize log state.
+
+    Globals Used:
+    -------------
+    - node_name, node_port: identity of the joining node
+    - proxy_name, proxy_port: address of the proxy
+    - leader_name, leader_port: updated once a leader is detected
+    - outgoing_messages: queue for sending messages
+    - term: current Raft term
+    - table_of_nodes: indirectly used by get_leader
+
+    Concurrency:
+    ------------
+    - Runs as a separate thread or during startup.
+    - Communicates via outgoing_messages queue.
+    - Sleep loop ensures non-blocking wait until a leader is elected.
+
+    Notes:
+    ------
+    - Must only be used by nodes joining an existing cluster (not by the initial leader).
+    - Ensures new node receives updates to synchronize log state with the leader.
+    - Polling interval is 0.5 seconds, balancing responsiveness and CPU usage.
+
+    Returns:
+    --------
+    None
+    """
+
+def parse_node_list(args, start_index):
+    """
+    Parses a list of node names and ports from command-line arguments and populates the server table.
+
+    Behavior:
+    ---------
+    1. Takes a list of arguments and a starting index.
+    2. Ensures arguments are in pairs (name, port).
+    3. Iterates over the remaining arguments in pairs:
+        - Converts the port string to an integer.
+        - Checks against MAX_SERVERS to prevent exceeding capacity.
+        - Appends a new Server object to table_of_nodes.
+        - Increments Total_nodes for each added server.
+
+    Globals Used:
+    -------------
+    - table_of_nodes: list of all servers in the cluster
+    - Total_nodes: counter for number of servers
+    - MAX_SERVERS: maximum allowed servers
+
+    Parameters:
+    -----------
+    args : list
+        List of command-line arguments containing server names and ports.
+    start_index : int
+        Index to start parsing server arguments.
+
+    Notes:
+    ------
+    - Raises ValueError if arguments are not in complete pairs.
+    - Stops adding servers when MAX_SERVERS is reached.
+
+    Returns:
+    --------
+    None
+    """
+
+def parse_command_line_arguments():
+    """
+    Parses command-line arguments to configure the current node and cluster.
+
+    Behavior:
+    ---------
+    1. Extracts proxy and node identity from sys.argv.
+    2. Determines whether the node is a leader or follower based on the 5th argument:
+        - 1 indicates leader.
+        - 0 indicates follower.
+    3. If leader:
+        - Sets is_leader flag to True.
+        - Assigns leader_name and leader_port to current node.
+        - Parses remaining server arguments via parse_node_list.
+    4. If follower:
+        - Sets is_leader flag to False.
+        - Reads leader info if provided.
+        - Adds leader to table_of_nodes.
+        - Parses any additional servers via parse_node_list.
+    5. Validates argument counts and provides usage messages if insufficient.
+
+    Globals Used:
+    -------------
+    - proxy_name, proxy_port: proxy node identity
+    - node_name, node_port: current node identity
+    - leader_name, leader_port: leader identity
+    - is_leader: boolean flag for leader role
+    - table_of_nodes: list of cluster servers
+    - Total_nodes: counter for total servers
+
+    Exceptions:
+    -----------
+    - Exits program if insufficient arguments are provided.
+    - parse_node_list raises ValueError for incomplete server argument pairs.
+
+    Notes:
+    ------
+    - Designed to run at program startup.
+    - Ensures consistent initialization of node and cluster information.
+    - Follower nodes may or may not have leader info provided (join scenario).
+
+    Returns:
+    --------
+    None
+    """
+
+def main():
+    """
+    Initializes the Raft node, sets up networking, and starts all service threads.
+
+    Behavior:
+    ---------
+    1. Parses command-line arguments to configure the current node and cluster.
+    2. Prints the server table for visibility.
+    3. Sets up the UDP socket for communication.
+    4. Creates and starts the following threads:
+        - keyboard_thread: handles user input.
+        - sender_thread: sends messages to other nodes.
+        - receiver_thread: receives messages from other nodes.
+        - main_server: processes all incoming messages.
+        - heartbeat_thread: periodically checks leader availability.
+        - election_thread: handles elections (initialized but may start later).
+    5. If the sixth command-line argument is "join":
+        - Calls join_server() to join an existing cluster.
+    6. Starts heartbeat_thread if joining or if a leader is known.
+
+    Globals Used:
+    -------------
+    - election: Thread object for elections
+    - append_handler: Thread object for handling log append
+    - heartbeat: Thread object for heartbeat handling
+    - leader_name, leader_port: used to determine heartbeat necessity
+    - sys.argv: command-line arguments
+
+    Concurrency:
+    ------------
+    - Multiple threads run concurrently, interacting via queues and shared globals.
+    - Keyboard input, message sending/receiving, server processing, heartbeats,
+      and elections all operate simultaneously.
+    - Proper global usage ensures thread coordination.
+
+    Notes:
+    ------
+    - This function serves as the program entry point.
+    - Thread start order ensures messages can be sent and received immediately.
+    - Heartbeat is only started if the node is joining or a leader exists.
+    - The program will block in keyboard_thread until exit or termination.
+
+    Returns:
+    --------
+    None
+    """

@@ -389,6 +389,7 @@ def setup_udp_socket():
     node_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     node_socket.bind((hostname, node_port))
     node_socket.settimeout(0.5)
+    
 
 def get_leader():
     for server in table_of_nodes:

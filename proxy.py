@@ -1,12 +1,13 @@
 # Name: Lucan Akpati
 # NSID: jbs671
 # Student Number: 11331253
-from cProfile import label
+
 # Name: Samuel Olukuewu
 # NSID: nds091
 # Student Number: 11323380
 
 from queue import Queue, Empty
+from cProfile import label
 import pickle
 import socket
 import sys
