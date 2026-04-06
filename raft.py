@@ -14,6 +14,7 @@ import threading
 import time
 import random
 from threading import Thread
+from time import sleep
 
 from raft_header import Message, Server, Label
 
@@ -56,6 +57,7 @@ log_append_tracker = [0] * 1024
 election = Thread # A thread
 heartbeat = Thread
 append_handler = Thread
+has_joined = False
 
 ####################################################################################
 def print_server_table():
@@ -109,17 +111,14 @@ def heartbeat_thread():
     global heartbeat_ack
     global election
     global electing
+    global leader_name, leader_port
 
     while keepRunning:
         if not is_leader:
-            leader = None
-            for node in table_of_nodes:
-                if node.is_leader:
-                    leader = node
-                    break
+            leader_name, leader_port = get_leader()
             
-            if leader:
-                msg = Message(Label.HEARTBEAT, 0, node_name, node_port, leader.name, leader.port, "", 0, term)
+            if leader_name is not None:
+                msg = Message(Label.HEARTBEAT, 0, node_name, node_port, leader_name, leader_port, "", 0, term)
                 outgoing_messages.put(msg)
                 heartbeat_ack = False
                 time.sleep(heartbeat_timeout)
@@ -215,6 +214,10 @@ def keyboard_thread():
             print_log()
             continue
 
+        if user_input == "table":
+            print_server_table()
+            continue
+
         if is_leader:
             for node in table_of_nodes:
                 msg = Message(Label.APPEND, seq_number_of_log, node_name, node_port, node.name, node.port, user_input, 0)
@@ -239,7 +242,7 @@ def sender_thread():
             continue
 
         except Exception as e:
-            print("Sender error:", e)
+            print("Send error:", e)
 
 def receiver_thread():
     while keepRunning:
@@ -251,7 +254,7 @@ def receiver_thread():
             continue  # lets loop re-check keepRunning
 
         except Exception as e:
-            print("Sender error:", e)
+            print("Receive error:", e)
 
 def main_server():
     global seq_number_of_log
@@ -372,7 +375,7 @@ def main_server():
 
         elif msg.label == Label.ADD_SERVER:
             table_of_nodes.append(
-                Server(msg.source_name, msg.source_port)
+                Server(msg.source_name, msg.source_port, msg.vote_for)
             )
 
 def setup_udp_socket():
@@ -380,9 +383,29 @@ def setup_udp_socket():
     node_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     node_socket.bind((hostname, node_port))
     node_socket.settimeout(0.5)
-    for node in table_of_nodes:
-        msg = Message(Label.UPDATE_CHECK, 0, node_name, node_port, node.name, node.port, "", 0, term)
-        outgoing_messages.put(msg)
+
+def get_leader():
+    for server in table_of_nodes:
+        if server.is_leader:
+            return server.name, server.port
+    return None, None
+
+def join_server_thread():
+    global heartbeat
+    global leader_name, leader_port
+    # Send Message to proxy to add you
+    msg = Message(Label.NEW_SERVER, 0, node_name, node_port, proxy_name, proxy_port, "", 0, term)
+    outgoing_messages.put(msg)
+    while True:
+        leader_name, leader_port = get_leader()
+        if leader_name is not None:
+            break
+        sleep(0.5)
+    msg = Message(Label.UPDATE_CHECK, 0, node_name, node_port, leader_name, leader_port, "", 0, term)
+    outgoing_messages.put(msg)
+    heartbeat = threading.Thread(target=heartbeat_thread, args=())
+    heartbeat.start()
+
 
 def parse_node_list(args, start_index):
     global Total_nodes
@@ -417,7 +440,8 @@ def parse_command_line_arguments():
     # Minimum required args: script + proxy_name + proxy_port + 0 + leader_name + leader_port
     if len(args) < 5:
         print("Usage: python raft.py proxy_name proxy_port node_name node_port 1 [server_name server_port ...] \n OR \n")
-        print("Usage: python raft.py proxy_name proxy_port node_name node_port 0 leader_name leader_port [server_name server_port ...]")
+        print("USage: python raft.py proxy_name proxy_port server_name server_port 0 leader_name leader_port [server_name server_port...]")
+        print("USage: python raft.py proxy_name proxy_port server_name server_port 0 join ") # If leader is not known
         sys.exit(1)
 
     # The 0 after leader_port tell the program whether it's the leader or not
@@ -444,21 +468,23 @@ def parse_command_line_arguments():
     if int(args[5]) == 0:
         is_leader = False
 
-        # The next hostname and port number is the leader
-
         print("Follower Node is listening...")
-        # Extract leader info
-        leader_name = args[6]
-        leader_port = int(args[7])
+        # Check if leader info was actually provided
+        # The next hostname and port number is the leader
+        if len(args) > 8:
+            leader_name = args[6]
+            leader_port = int(args[7])
 
-        table_of_nodes.append(Server(leader_name, leader_port, True))
-        Total_nodes += 1
-        # Remaining args (servers start from index 7)
-        remaining = args[8:]
+            table_of_nodes.append(Server(leader_name, leader_port, True))
+            Total_nodes += 1
 
-        parse_node_list(remaining, 0)
+            # Remaining args (servers start from index 8)
+            remaining = args[8:]
+            parse_node_list(remaining, 0)
+
 
 def main():
+    args = sys.argv
     parse_command_line_arguments()
     print_server_table()
     setup_udp_socket()
@@ -481,7 +507,13 @@ def main():
     receiver.start()
     keyboard.start()
     server.start()
-    heartbeat.start()
+
+    if args[6] == "join":
+        t = Thread(target=join_server_thread, args=())
+        t.start()
+
+    if (leader_name is not None) or (leader_port is not None):
+        heartbeat.start()
 
 if __name__ == "__main__":
     main()

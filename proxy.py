@@ -1,7 +1,7 @@
 # Name: Lucan Akpati
 # NSID: jbs671
 # Student Number: 11331253
-
+from cProfile import label
 # Name: Samuel Olukuewu
 # NSID: nds091
 # Student Number: 11323380
@@ -27,6 +27,8 @@ proxy_port = None
 proxy_socket = None
 outgoing_messages = Queue()
 incoming_messages = Queue()
+
+term = 0
 
 table_of_nodes = []
 MAX_SERVERS = 20
@@ -76,7 +78,7 @@ def receiver_thread():
             continue  # lets loop re-check keepRunning
 
         except Exception as e:
-            print("Receiver error:", e)
+            print("Receive error:", e)
 
 
 def keyboard_thread():
@@ -89,6 +91,10 @@ def keyboard_thread():
             keepRunning = False
             break
 
+        if user_input == "table":
+            print_server_table()
+            continue
+
 def main_server():
     global keepRunning
     while keepRunning:
@@ -98,22 +104,44 @@ def main_server():
         except Empty:
             continue  # lets loop re-check keepRunning
 
+        if msg.label not in (Label.HEARTBEAT, Label.HEARTBEAT_ACK):
+            print(f"Proxy got \"{msg.msg}\" with label {msg.label.name} from {msg.source_name}:{msg.source_port}")
 
-        #print(f"Proxy got \"{msg.msg}\" with label {msg.label.name} from {msg.source_name}:{msg.source_port}")
 
         if msg.label == Label.NEW_SERVER:
-            new_server = Server(msg.source_name, msg.source_port)
+            # duplicate servers
+            exists = any(
+                s.name == msg.source_name and s.port == msg.source_port
+                for s in table_of_nodes
+            )
+
+            if exists:
+                print("Server already registered, ignoring NEW_SERVER")
+                continue
+
+            # Add new server first
+            new_server = Server(msg.source_name, msg.source_port, 0)
             table_of_nodes.append(new_server)
 
+            # Tell existing servers about new server
             for server in table_of_nodes:
-                add_msg = Message(
-                    Label.ADD_SERVER,
-                    0,
-                    msg.source_name,
-                    msg.source_port,
-                    server.name,
-                    server.port
-                )
+                if server.name == msg.source_name and server.port == msg.source_port:
+                    continue
+
+                add_msg = Message(Label.ADD_SERVER, 0,
+                                  msg.source_name, msg.source_port,
+                                  server.name, server.port, "", 0, term)
+                outgoing_messages.put(add_msg)
+
+            # Tell new server about existing servers
+            for server in table_of_nodes:
+                if server.name == msg.source_name and server.port == msg.source_port:
+                    continue
+
+                add_msg = Message(Label.ADD_SERVER, 0,
+                                  server.name, server.port,
+                                  msg.source_name, msg.source_port,
+                                  "", server.is_leader, term)
                 outgoing_messages.put(add_msg)
 
         if msg.label == Label.NEW_LEADER:
