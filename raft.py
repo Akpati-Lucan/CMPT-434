@@ -40,7 +40,7 @@ term = 0
 voted = False
 
 heartbeat_timeout = random.randint(0, 5)
-election_timeout = random.randint(1, 5)
+election_timeout = 1
 append_timeout = random.uniform(0.005, 0.02)
 
 heartbeat_ack = True
@@ -104,7 +104,6 @@ def print_log():
         print("============================\n")
 
 ####################################################################################
-
 
 def heartbeat_thread():
     global heartbeat_ack
@@ -388,7 +387,6 @@ def parse_node_list(args, start_index):
         table_of_nodes.append(Server(name, port))
         Total_nodes += 1
 
-
 def parse_command_line_arguments():
     args = sys.argv
 
@@ -446,11 +444,8 @@ def parse_command_line_arguments():
         parse_node_list(remaining, 0)
 
 def main():
-
     parse_command_line_arguments()
-
     print_server_table()
-
     setup_udp_socket()
 
     global election
@@ -472,9 +467,6 @@ def main():
     keyboard.start()
     server.start()
     heartbeat.start()
-
-    # append_handler = Thread(target=append_handler_thread, args=())
-    #
 
 if __name__ == "__main__":
     main()
