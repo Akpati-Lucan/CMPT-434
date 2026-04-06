@@ -117,6 +117,16 @@ def main_server():
 
             if exists:
                 print("Server already registered, ignoring NEW_SERVER")
+                # Tell new server about existing servers
+                for server in table_of_nodes:
+                    if server.name == msg.source_name and server.port == msg.source_port:
+                        continue
+
+                    add_msg = Message(Label.ADD_SERVER, 0,
+                                    server.name, server.port,
+                                    msg.source_name, msg.source_port,
+                                    "", server.is_leader, term)
+                    outgoing_messages.put(add_msg)
                 continue
 
             # Add new server first

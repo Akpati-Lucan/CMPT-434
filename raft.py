@@ -374,9 +374,15 @@ def main_server():
             outgoing_messages.put(msg)
 
         elif msg.label == Label.ADD_SERVER:
-            table_of_nodes.append(
-                Server(msg.source_name, msg.source_port, msg.vote_for)
+            exists = any(
+                s.name == msg.source_name and s.port == msg.source_port
+                for s in table_of_nodes
             )
+
+            if not exists:
+                table_of_nodes.append(
+                    Server(msg.source_name, msg.source_port, msg.vote_for)
+                )
 
 def setup_udp_socket():
     global node_socket
@@ -390,8 +396,7 @@ def get_leader():
             return server.name, server.port
     return None, None
 
-def join_server_thread():
-    global heartbeat
+def join_server():
     global leader_name, leader_port
     # Send Message to proxy to add you
     msg = Message(Label.NEW_SERVER, 0, node_name, node_port, proxy_name, proxy_port, "", 0, term)
@@ -403,8 +408,6 @@ def join_server_thread():
         sleep(0.5)
     msg = Message(Label.UPDATE_CHECK, 0, node_name, node_port, leader_name, leader_port, "", 0, term)
     outgoing_messages.put(msg)
-    heartbeat = threading.Thread(target=heartbeat_thread, args=())
-    heartbeat.start()
 
 
 def parse_node_list(args, start_index):
@@ -509,10 +512,9 @@ def main():
     server.start()
 
     if args[6] == "join":
-        t = Thread(target=join_server_thread, args=())
-        t.start()
+        join_server()
 
-    if (leader_name is not None) or (leader_port is not None):
+    if (args[6] == "join") or (leader_name is not None) or (leader_port is not None):
         heartbeat.start()
 
 if __name__ == "__main__":
