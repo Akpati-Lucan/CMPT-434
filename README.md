@@ -131,3 +131,19 @@ COMMON MISTAKES
 * Starting nodes before the proxy is running
 
 ---
+
+KEYBOARD COMMANDS (NODE INTERACTION)
+
+When running any Raft node, the keyboard thread accepts the following commands:
+
+* `exit`  - Stops the node and all its threads gracefully.
+* `log`   - Prints the current state of the log for this node.
+* `table` - Prints the current server table, showing which node is leader.
+* Any other text input:
+  - If this node is the leader:
+    - Sends an `APPEND` message to all followers.
+    - Starts `append_handler_thread` to handle replication and commit.
+  - If this node is a follower:
+    - Sends a `NEW_LOG_VALUE` message to the current leader.
+
+Note: All messages are propagated using the Raft protocol to maintain consistency and commit order.
